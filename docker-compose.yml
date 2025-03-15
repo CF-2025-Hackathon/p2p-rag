@@ -1,0 +1,42 @@
+services:
+  go1:
+    build:
+      context: docker/go
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      RENDEZVOUS: CF2025R4GLLM1
+      PRIV_KEY: CAESQEWItMSZtFGmFNgWYtTNiFUn7ZgKmm8n0uPN+A1Gqn4Ka1MwLHs0lgbsNVw+/B47kUOTgFKTfrlzAFuitQaq+jo=
+      RAG_TOPICS: "AI,Blockchain"
+    restart: unless-stopped
+    volumes:
+      - ./go:/go/src/app
+
+  go2:
+    build:
+      context: docker/go
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      RENDEZVOUS: CF2025R4GLLM1
+      PRIV_KEY: CAESQHDamXB+3SKB1JWc1ZV1sNNrGfWW3TVtH0fJhBF9YFEDbvwVVs8LeDTWuZz2DC3YlhpPRb2v10hTSeOYJP6Bhb4=
+      RAG_TOPICS: "Bio-engineering,Microplastics"
+    restart: unless-stopped
+    volumes:
+      - ./go:/go/src/app
+
+  go3:
+    build:
+      context: docker/go
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8080"
+    environment:
+      RENDEZVOUS: CF2025R4GLLM1
+      PRIV_KEY: CAESQEtB5tgGcrIOll1GG8OBxEn2TfkBQ/JeZO/OsT7anmWPKnvlRG//S4i67Fs6b39SroutEneaJj9IZRDd2Gydb0U=
+      RAG_TOPICS: "CloudFest,Hackathon"
+    restart: unless-stopped
+    volumes:
+      - ./go:/go/src/app

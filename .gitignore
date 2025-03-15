@@ -1,0 +1,7 @@
+.idea
+.vscode
+*.exe
+/go-node
+/go/p2p-rag
+/go/vendor
+/go/tmp
