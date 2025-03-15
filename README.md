@@ -25,3 +25,7 @@ As soon as a new nodes joins the system, the nodes exposes its particular knowle
 To query the network, the following flow should be implemented:
 
 ![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/docu/documentation/querying.svg)
+
+
+### Decisions
+- Embeddings and vectors are used instead of plain text to ensure scalability.
