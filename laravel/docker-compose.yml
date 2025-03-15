@@ -24,7 +24,7 @@ services:
         depends_on:
             - mysql
             - pgsql
-            - ollama-webui
+            - open-webui
     mysql:
         image: 'mysql/mysql-server:8.0'
         ports:
@@ -90,25 +90,23 @@ services:
             - OLLAMA_HOST=0.0.0.0
         networks:
             - sail
-    ollama-webui:
-        build:
-            context: .
-            args:
-                OLLAMA_BASE_URL: '/ollama'
-            dockerfile: Dockerfile
-        image: ghcr.io/open-webui/open-webui:main
+    open-webui:
+        image: ghcr.io/open-webui/open-webui:latest
         container_name: open-webui
         volumes:
-            - ollama-webui:/app/backend/data
+            - open-webui:/app/backend/data
         depends_on:
             - ollama
         ports:
             - "3001:8080"
         environment:
             - 'OLLAMA_BASE_URL=http://ollama:11434'
+            - 'OLLAMA_API_BASE_URL=http://ollama:11434'
             - 'WEBUI_SECRET_KEY='
         extra_hosts:
             - host.docker.internal:host-gateway
+        networks:
+            - sail
         restart: unless-stopped
 networks:
     sail:
@@ -118,4 +116,4 @@ volumes:
         driver: local
     sail-pgsql:
         driver: local
-    ollama-webui: {}
+    open-webui: {}

@@ -13,17 +13,20 @@ class P2PController extends Controller
      */
     public function index()
     {
+        $question = 'what is one + one ?';
+
         $config = new OllamaConfig();
-        $config->model = 'gemma3:4b';
-//        $config->url = 'http://172.18.209.59:11434/api/';
-//        $config->url = 'http://172.18.209.149:11434/api/';
-//        $config->url = 'http://ollama:11434/api/';
+        $config->model = 'gemma3:1b';
+        $config->url = 'http://ollama:11434/api/';
         $chat = new OllamaChat($config);
-        $response = $chat->generateText('what is one + one ?');
+        $response = $chat->generateText($question);
 
-        print_r($response);
-        die;
-
-        echo 'TEST';
+        return response()->json([
+            'question' => $question,
+            'response' => $response,
+            'ollama_model' => $config->model,
+            'url_docker' => $config->url,
+            'status' => 200
+        ]);
     }
 }
