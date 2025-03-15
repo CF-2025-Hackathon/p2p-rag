@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use LLPhant\OllamaConfig;
 use LLPhant\Chat\OllamaChat;
+use Illuminate\Support\Facades\DB;
 
 class P2PController extends Controller
 {
@@ -13,6 +14,12 @@ class P2PController extends Controller
      */
     public function index()
     {
+        $results = DB::connection('pgsql')->select('SELECT * FROM public.site_pages');
+        print_r($results);
+        die;
+
+
+
         $question = 'what is one + one ?';
 
         $config = new OllamaConfig();
