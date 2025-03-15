@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,20 +27,70 @@ import (
 )
 
 const systemName = "rendezvous"
+const vectorDimension = 768
 
-var knownTopics = make(map[string]struct{})
+// Vector is a type representing a 768-dimensional vector of float64 values
+type Vector [vectorDimension]float64
+
+// Topic represents a semantic vector or embedding
+type Topic struct {
+	Vectors []Vector `json:"vectors"`
+}
+
+var knownTopics []Topic
 var knownTopicsMutex sync.RWMutex
 var logger = log.Logger(systemName)
 var topic *pubsub.Topic
+
+// notifyExternalApiAboutGossipedTopic sends an HTTP request to notify an external API about a gossiped topic
+func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
+	apiUrl := "http://localhost:9999/"
+
+	logger.Info("📡 Notifying external API about gossiped topic:", "from peer:", peerId)
+	// Use the Gin HTTP client to make the POST request
+	// This is a non-blocking call to avoid slowing down the gossip process
+	go func() {
+		client := &http.Client{Timeout: 5 * time.Second}
+
+		// Create a payload with topic data and peer ID
+		payload := struct {
+			Topic  Topic  `json:"topic"`
+			PeerId string `json:"peerId"`
+		}{
+			Topic:  topicData,
+			PeerId: peerId,
+		}
+
+		jsonData, err := json.Marshal(payload)
+		if err != nil {
+			logger.Warn("❌ Failed to marshal topic data:", err)
+			return
+		}
+
+		resp, err := client.Post(apiUrl, "application/json", bytes.NewReader(jsonData))
+		if err != nil {
+			logger.Warn("❌ Failed to notify external API:", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode >= 400 {
+			logger.Warn("❌ External API returned error status:", resp.StatusCode)
+		} else {
+			logger.Debug("✅ Successfully notified external API about topic")
+		}
+	}()
+}
 
 func startWebApi() {
 	r := gin.Default()
 
 	r.GET("/topic", func(c *gin.Context) {
 		knownTopicsMutex.RLock()
-		topics := make([]string, 0, len(knownTopics))
-		for topic := range knownTopics {
-			topics = append(topics, topic)
+		// Return a map of topic keys to their vector data
+		topics := make([]Topic, len(knownTopics))
+		for _, topicData := range knownTopics {
+			topics = append(topics, topicData)
 		}
 		knownTopicsMutex.RUnlock()
 
@@ -46,38 +98,75 @@ func startWebApi() {
 			"topics": topics,
 		})
 	})
+
 	r.POST("/topic", func(c *gin.Context) {
 		type TopicRequest struct {
-			Topic string `json:"topic" binding:"required"`
+			Vectors [][]float64 `json:"vectors" binding:"required"`
 		}
 
 		var request TopicRequest
 		if err := c.ShouldBindJSON(&request); err != nil {
-			c.JSON(400, gin.H{"error": "Invalid request format, expecting {\"topic\": \"your-topic\"}"})
+			c.JSON(400, gin.H{"error": "Invalid request format, expecting {\"vectors\": [[...768 values], [...]]}"})
 			return
+		}
+
+		// Validate vectors
+		for _, vec := range request.Vectors {
+			if len(vec) != vectorDimension {
+				c.JSON(400, gin.H{"error": fmt.Sprintf("Each vector must have exactly %d values", vectorDimension)})
+				return
+			}
+		}
+
+		// Convert [][]float64 to []Vector
+		vectors := make([]Vector, len(request.Vectors))
+		for i, vec := range request.Vectors {
+			var vector Vector
+			for j, val := range vec {
+				vector[j] = val
+			}
+			vectors[i] = vector
+		}
+
+		topicData := Topic{
+			Vectors: vectors,
 		}
 
 		// Add to known topics
 		knownTopicsMutex.Lock()
-		knownTopics[request.Topic] = struct{}{}
+		knownTopics = append(knownTopics, topicData)
 		knownTopicsMutex.Unlock()
 
 		// Gossip the new topic immediately
 		if topic != nil {
-			err := topic.Publish(context.Background(), []byte(request.Topic))
+			// Serialize the topic data to JSON
+			topicPayload := struct {
+				Data Topic `json:"data"`
+			}{
+				Data: topicData,
+			}
+
+			jsonData, err := json.Marshal(topicPayload)
+			if err != nil {
+				logger.Warn("❌ Error marshaling topic data:", err)
+				c.JSON(500, gin.H{"error": "Failed to serialize topic data", "details": err.Error()})
+				return
+			}
+
+			err = topic.Publish(context.Background(), jsonData)
 			if err != nil {
 				logger.Warn("❌ Error publishing topic from API:", err)
 				c.JSON(500, gin.H{"error": "Failed to gossip topic", "details": err.Error()})
 				return
 			}
-			logger.Info("📡 Gossiped topic from API:", request.Topic)
+			logger.Info("📡 Gossiped topic from API")
 		} else {
 			logger.Warn("❌ Couldn't gossip topic from API: p2p not initialized yet")
 		}
 
 		c.JSON(200, gin.H{
-			"message": "Topic received and gossiped",
-			"topic":   request.Topic,
+			"message":     "Topic received and gossiped",
+			"vectorCount": len(vectors),
 		})
 	})
 	r.Run(":8888")
@@ -246,37 +335,37 @@ func handleStream(stream network.Stream) {
 }
 
 // 🟢 Function to send our known topics to the gossip network
-func gossipTopics(topic *pubsub.Topic) {
-	// Combine environment-based topics and API-added topics
-	envTopics := strings.Split(os.Getenv("RAG_TOPICS"), ",")
-
-	// Get API-added topics
+func gossipTopics(pubsubTopic *pubsub.Topic) {
 	knownTopicsMutex.RLock()
-	allTopics := make([]string, 0, len(knownTopics)+len(envTopics))
-	for topic := range knownTopics {
-		if topic != "" {
-			allTopics = append(allTopics, topic)
-		}
-	}
-	knownTopicsMutex.RUnlock()
+	defer knownTopicsMutex.RUnlock()
 
-	// Add environment topics
-	for _, t := range envTopics {
-		if t != "" {
-			allTopics = append(allTopics, t)
-		}
-	}
-
-	if len(allTopics) == 0 {
+	if len(knownTopics) == 0 {
 		return
 	}
 
-	message := strings.Join(allTopics, ",")
-	err := topic.Publish(context.Background(), []byte(message))
-	if err != nil {
-		logger.Warn("❌ Error publishing topics:", err)
+	// We'll gossip each topic individually since they may be large
+	for _, topicData := range knownTopics {
+		// Create payload
+		topicPayload := struct {
+			Data Topic `json:"data"`
+		}{
+			Data: topicData,
+		}
+
+		jsonData, err := json.Marshal(topicPayload)
+		if err != nil {
+			logger.Warn("❌ Error marshaling topic data:", err)
+			continue
+		}
+
+		err = pubsubTopic.Publish(context.Background(), jsonData)
+		if err != nil {
+			logger.Warn("❌ Error publishing topic:", err)
+			continue
+		}
+
+		logger.Info("📡 Gossiped topic, with ", len(topicData.Vectors), " vectors")
 	}
-	logger.Info("📡 Gossiped topics:", message)
 }
 
 // 🟢 Function to listen for gossip messages from peers
@@ -288,20 +377,23 @@ func listenForGossip(sub *pubsub.Subscription) {
 			continue
 		}
 
-		// Extract and store topics
-		receivedTopics := strings.Split(string(msg.Data), ",")
-		for _, topic := range receivedTopics {
-			if topic == "" {
-				continue
-			}
+		// Get peer ID who sent this message
+		senderId := msg.ReceivedFrom.String()
 
-			knownTopicsMutex.Lock()
-			if _, exists := knownTopics[topic]; !exists {
-				knownTopics[topic] = struct{}{}
-				logger.Info("🔍 Learned about new topic:", topic)
-			}
-			knownTopicsMutex.Unlock()
+		// Parse the received JSON data
+		var topicPayload struct {
+			Key  string `json:"key"`
+			Data Topic  `json:"data"`
 		}
+
+		if err := json.Unmarshal(msg.Data, &topicPayload); err != nil {
+			logger.Warn("❌ Failed to unmarshal received topic data:", err)
+			continue
+		}
+
+		topicData := topicPayload.Data
+
+		notifyExternalApiAboutGossipedTopic(topicData, senderId)
 	}
 }
 
