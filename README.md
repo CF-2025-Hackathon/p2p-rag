@@ -1,9 +1,9 @@
 # Peer-to-Peer Federated RAG Framework
 
+## About the Hackathon
 See [project page](https://hackathon.cloudfest.com/project/peer-to-peer-federated-rag-framework/) for more details.
 
-## Note
-
+### General
 Part of this code comes from the go-libp2p library, mainly from
 its [examples](https://github.com/libp2p/go-libp2p/tree/master/examples/chat-with-rendezvous).
 
@@ -18,7 +18,8 @@ Starting in the project we first wanted to design the communication flow.
 
 #### Exposure of new nodes / knowledge in the system
 As soon as a new nodes joins the system, the nodes exposes its particular knowledge.
-
+![Register in the network](https://github.com/CF-2025-Hackathon/p2p-rag/blob/docu/documentation/expertise_exposure_A.svg)
+Defining the payload:
 ![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/docu/documentation/expertise_exposure.svg)
 
 #### Querying the network
