@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 async def test_query():
     url = "http://localhost:8000/query"
     data = {
-        "question": "I am hungry and would like to try something new. Can you recommend something?",
+        "question": "I want to knwo eveything about apes",
         "embedding_model": "nomic-embed-text"
     }
     

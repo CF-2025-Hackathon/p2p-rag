@@ -1,6 +1,12 @@
 import asyncio
 import logging
-from ..nodeselector import NodeSelector
+import sys
+import os
+
+# Fügen Sie das Hauptverzeichnis zum Python-Path hinzu
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+from python.nodeselector import NodeSelector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,7 +23,7 @@ async def test_node_selection():
         
         # Find best match
         logger.info(f"Finding best matches for query: '{query}'")
-        best_matches = await selector.find_best_match(query, model_name, top_k=3)
+        best_matches = await selector.find_best_match(query, model_name, top_k=1)
         
         if best_matches:
             logger.info("\nTop 1 Best Matches:")
