@@ -6,28 +6,85 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
-	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/ipfs/go-log/v2"
 )
 
 const systemName = "rendezvous"
 
 var knownTopics = make(map[string]struct{})
+var knownTopicsMutex sync.RWMutex
 var logger = log.Logger(systemName)
+var topic *pubsub.Topic
+
+func startWebApi() {
+	r := gin.Default()
+
+	r.GET("/topic", func(c *gin.Context) {
+		knownTopicsMutex.RLock()
+		topics := make([]string, 0, len(knownTopics))
+		for topic := range knownTopics {
+			topics = append(topics, topic)
+		}
+		knownTopicsMutex.RUnlock()
+
+		c.JSON(200, gin.H{
+			"topics": topics,
+		})
+	})
+	r.POST("/topic", func(c *gin.Context) {
+		type TopicRequest struct {
+			Topic string `json:"topic" binding:"required"`
+		}
+
+		var request TopicRequest
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request format, expecting {\"topic\": \"your-topic\"}"})
+			return
+		}
+
+		// Add to known topics
+		knownTopicsMutex.Lock()
+		knownTopics[request.Topic] = struct{}{}
+		knownTopicsMutex.Unlock()
+
+		// Gossip the new topic immediately
+		if topic != nil {
+			err := topic.Publish(context.Background(), []byte(request.Topic))
+			if err != nil {
+				logger.Warn("❌ Error publishing topic from API:", err)
+				c.JSON(500, gin.H{"error": "Failed to gossip topic", "details": err.Error()})
+				return
+			}
+			logger.Info("📡 Gossiped topic from API:", request.Topic)
+		} else {
+			logger.Warn("❌ Couldn't gossip topic from API: p2p not initialized yet")
+		}
+
+		c.JSON(200, gin.H{
+			"message": "Topic received and gossiped",
+			"topic":   request.Topic,
+		})
+	})
+	r.Run(":8888")
+}
 
 func main() {
+	go startWebApi()
 	log.SetAllLoggers(log.LevelError)
 	log.SetLogLevel(systemName, "info")
 	help := flag.Bool("h", false, "Display Help")
@@ -115,7 +172,8 @@ func main() {
 		panic(err)
 	}
 
-	topic, err := ps.Join("/rag-topics")
+	// Initialize the global topic
+	topic, err = ps.Join("/rag-topics")
 	if err != nil {
 		panic(err)
 	}
@@ -189,8 +247,31 @@ func handleStream(stream network.Stream) {
 
 // 🟢 Function to send our known topics to the gossip network
 func gossipTopics(topic *pubsub.Topic) {
-	myTopics := strings.Split(os.Getenv("RAG_TOPICS"), ",")
-	message := strings.Join(myTopics, ",")
+	// Combine environment-based topics and API-added topics
+	envTopics := strings.Split(os.Getenv("RAG_TOPICS"), ",")
+
+	// Get API-added topics
+	knownTopicsMutex.RLock()
+	allTopics := make([]string, 0, len(knownTopics)+len(envTopics))
+	for topic := range knownTopics {
+		if topic != "" {
+			allTopics = append(allTopics, topic)
+		}
+	}
+	knownTopicsMutex.RUnlock()
+
+	// Add environment topics
+	for _, t := range envTopics {
+		if t != "" {
+			allTopics = append(allTopics, t)
+		}
+	}
+
+	if len(allTopics) == 0 {
+		return
+	}
+
+	message := strings.Join(allTopics, ",")
 	err := topic.Publish(context.Background(), []byte(message))
 	if err != nil {
 		logger.Warn("❌ Error publishing topics:", err)
@@ -210,10 +291,16 @@ func listenForGossip(sub *pubsub.Subscription) {
 		// Extract and store topics
 		receivedTopics := strings.Split(string(msg.Data), ",")
 		for _, topic := range receivedTopics {
+			if topic == "" {
+				continue
+			}
+
+			knownTopicsMutex.Lock()
 			if _, exists := knownTopics[topic]; !exists {
 				knownTopics[topic] = struct{}{}
 				logger.Info("🔍 Learned about new topic:", topic)
 			}
+			knownTopicsMutex.Unlock()
 		}
 	}
 }
