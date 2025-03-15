@@ -18,7 +18,9 @@ Starting in the project we first wanted to design the communication flow.
 
 #### Exposure of new nodes / knowledge in the system
 As soon as a new nodes joins the system, the nodes exposes its particular knowledge.
+
 ![Register in the network](https://github.com/CF-2025-Hackathon/p2p-rag/blob/main/documentation/expertise_exposure_A.svg)
+
 Defining the payload:
 ![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/main/documentation/expertise_exposure.svg)
 
