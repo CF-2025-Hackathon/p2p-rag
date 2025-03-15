@@ -14,15 +14,15 @@ See also [edgevpn](https://github.com/mudler/edgevpn) for more hints.
 #### First Flow
 Starting in the project we first wanted to design the communication flow.
 
-![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/docu/documentation/first_draft.svg)
+![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/main/documentation/first_draft.svg)
 
 #### Exposure of new nodes / knowledge in the system
 As soon as a new nodes joins the system, the nodes exposes its particular knowledge.
-![Register in the network](https://github.com/CF-2025-Hackathon/p2p-rag/blob/docu/documentation/expertise_exposure_A.svg)
+![Register in the network](https://github.com/CF-2025-Hackathon/p2p-rag/blob/main/documentation/expertise_exposure_A.svg)
 Defining the payload:
-![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/docu/documentation/expertise_exposure.svg)
+![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/main/documentation/expertise_exposure.svg)
 
 #### Querying the network
 To query the network, the following flow should be implemented:
 
-![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/docu/documentation/querying.svg)
+![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/main/documentation/querying.svg)
