@@ -101,7 +101,7 @@ class NodeSelector:
             logger.error(f"Error finding best match: {str(e)}")
             return []
 
-    async def find_nodes_above_threshold(self, query: str, model_name: str = "nomic-embed-text", threshold: float = 0.8) -> List[Tuple[str, float, str]]:
+    async def find_nodes_above_threshold(self, query: str, model_name: str = "nomic-embed-text", threshold: float = 0.6) -> List[Tuple[str, float, str]]:
         """
         Find all nodes with similarity above a threshold using Ollama's embeddings
         Args:

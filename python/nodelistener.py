@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 import logging
 from .embedding import get_embedding_from_ollama
+from .nodeselector import NodeSelector
 
 # Logging configuration
 logging.basicConfig(level=logging.INFO)
@@ -94,17 +95,44 @@ async def receive_gossip(gossip: GossipData):
 async def process_query(query: QueryRequest):
     """
     Processes a query by vectorizing it with Ollama's nomic-embed-text model
+    and finds the best matching nodes
     """
     try:
         # Get vector from Ollama
         vector = await get_embedding_from_ollama(query.question, query.embedding_model)
         
+        # Initialize NodeSelector and find best matches
+        node_selector = NodeSelector()
+        best_matches = await node_selector.find_best_match(
+            query=query.question,
+            model_name=query.embedding_model,
+            top_k=1  # Return top 1 matches
+        )
+        # # TODO: where is the go-client running? 
+        # async with httpx.AsyncClient() as client:
+        #     client_answer = await client.post(
+        #         "http://localhost:8080/api/answer",
+        #         json={
+        #             "node_id": best_matches[0][0], 
+        #             "vector": vector
+        #         }
+        #     )
+
+        # TODO: return has to be the answer from the go client
         return {
             "status": "success",
-            "vector": vector,
-            "model_used": query.embedding_model
+            "vector": vector[:5],
+            "model_used": query.embedding_model,
+            "best_matches": [
+                {
+                    "node_id": node_id,
+                    "similarity_score": float(score),
+                    "embedding_model": model
+                }
+                for node_id, score, model in best_matches
+            ]
         }
-        
+    
     except Exception as e:
         logger.error(f"Error processing query: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")

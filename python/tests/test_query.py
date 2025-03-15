@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 async def test_query():
     url = "http://localhost:8000/query"
     data = {
-        "question": "Was ist Machine Learning?",
+        "question": "I am hungry and would like to try something new. Can you recommend something?",
         "embedding_model": "nomic-embed-text"
     }
     
@@ -27,8 +27,8 @@ async def test_query():
             logger.info("\nResponse Body:")
             logger.info(json.dumps(result, indent=2))
             
-            if response.status_code == 200 and "vector" in result:
-                logger.info(f"\nVector dimension: {len(result['vector'])}")
+            if response.status_code == 200:
+                # logger.info(f"\nVector dimension: {len(result['vector'])}")
                 logger.info(f"First few values: {result['vector'][:5]}")
             else:
                 logger.error("No vector in response or request failed")

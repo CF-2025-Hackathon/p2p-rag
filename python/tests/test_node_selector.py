@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from nodeselector import NodeSelector
+from ..nodeselector import NodeSelector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
