@@ -13,12 +13,15 @@ See also [edgevpn](https://github.com/mudler/edgevpn) for more hints.
 ### P2P Communcation Flow
 #### First Flow
 Starting in the project we first wanted to design the communication flow.
+
 ![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/docu/documentation/first_draft.svg)
 
 #### Exposure of new nodes / knowledge in the system
 As soon as a new nodes joins the system, the nodes exposes its particular knowledge.
+
 ![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/docu/documentation/expertise_exposure.svg)
 
 #### Querying the network
 To query the network, the following flow should be implemented:
+
 ![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/blob/docu/documentation/querying.svg)
