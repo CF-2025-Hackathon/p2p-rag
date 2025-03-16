@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -516,6 +516,7 @@ func main() {
 
 	// Store the host in the global variable
 	globalHost = host
+	peerManager := NewPeerManager()
 
 	// Set a function as stream handler. This function is called when a peer
 	// initiates a connection and starts a stream with this peer.
@@ -603,22 +604,27 @@ func main() {
 
 				if err != nil {
 					logger.Warn("Connection failed: ", err)
+					peerManager.RemovePeer(peer.ID)
+					logger.Warn("Connection failed, peer ", peer.ID, " was removed.")
 					continue
 				} else {
 					rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-
+					peerManager.AddPeer(peer.ID, stream)
 					go writeData(rw)
 					go readData(rw)
 				}
 
 				logger.Info("*** 🥳 Connected to: ", peer)
+			} else {
+				peerManager.RemovePeer(peer.ID)
 			}
-		}
 
-		logger.Warn("No more peers 😢- Trying again")
-		// Wait again...
-		time.Sleep(5 * time.Second)
+			logger.Warn("No more peers 😢- Trying again")
+			// Wait again...
+			time.Sleep(5 * time.Second)
+		}
 	}
+
 }
 
 func handleStream(stream network.Stream) {
