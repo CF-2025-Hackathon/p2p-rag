@@ -1,5 +1,7 @@
 ## 1. Install Laravel
 1. ```php artisan sail:install```
+1. Select: `mysql` and `postgres`
+1. Copy `.env.example` to `.env`
 1. ```./vendor/bin/sail up -d```
 1. ```./vendor/bin/sail exec ollama ollama pull gemma3:1b```
 1. ```./vendor/bin/sail exec ollama ollama pull nomic-embed-text```
