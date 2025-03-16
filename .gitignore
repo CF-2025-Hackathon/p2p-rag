@@ -1,7 +1,9 @@
 .idea
 .vscode
 *.exe
+.DS_Store
 /go-node
 /go/p2p-rag
 /go/vendor
 /go/tmp
+/laravel/.DS_Store
