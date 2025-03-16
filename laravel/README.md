@@ -23,12 +23,6 @@
 1. ```GRANT CONNECT ON DATABASE postgres TO new_user;```
 1. ```GRANT SELECT ON ALL TABLES IN SCHEMA public TO new_user;```
 1. Open in browser `http://127.0.0.1:54323/project/default/sql/1`, copy content file: `dummy-data/supabase-db-setup.sql` and paste in sql editor
-1. `create policy "Allow public read access"
-on site_pages
-for select
-to public
-using (true);`
-1. ```GRANT SELECT ON ALL TABLES IN SCHEMA public TO new_user;```
 1. Open in `http://127.0.0.1:54323/project/default`
 1. Go to `Table Editor`
 1. Go to table `site_pages`, and import file: `dummy-data/site_pages_rows.csv`
