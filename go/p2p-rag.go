@@ -46,7 +46,7 @@ var globalHost host.Host
 
 // notifyExternalApiAboutGossipedTopic sends an HTTP request to notify an external API about a gossiped topic
 func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
-	apiUrl := "http://localhost:9999/"
+	apiUrl := "http://localhost:9999/topic"
 
 	logger.Info("📡 Notifying external API about gossiped topic:", "from peer:", peerId)
 	// Use the Gin HTTP client to make the POST request
