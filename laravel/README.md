@@ -26,6 +26,8 @@
 1. Open in `http://127.0.0.1:54323/project/default`
 1. Go to `Table Editor`
 1. Go to table `site_pages`, and import file: `dummy-data/site_pages_rows.csv`
+1. Run again in docker container supabase > supabase_db_supabase: ```GRANT CONNECT ON DATABASE postgres TO new_user;```
+1. Run again in docker container supabase > supabase_db_supabase: ```GRANT SELECT ON ALL TABLES IN SCHEMA public TO new_user;```
 
 ## 4. RUN
 1. Open Postman
