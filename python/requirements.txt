@@ -3,4 +3,9 @@ fastapi==0.115.11
 pydantic==2.10.6
 httpx==0.28.1 
 numpy==2.2.3
-uvicorn==0.34.0 
+uvicorn==0.34.0
+streamlit==1.43.2
+logfire==3.8.1
+supabase==2.13.0
+openai==1.66.3
+pydantic_ai==0.0.40
