@@ -197,7 +197,7 @@ func forwardQueryToLocalAPI(request QueryRequest) (interface{}, error) {
 	}
 
 	// Debug log to check what's being sent
-	logger.Info("📤 Forwarding query to local API with payload:", string(jsonData))
+	//logger.Info("📤 Forwarding query to local API with payload:", string(jsonData))
 
 	// Send the query to the local search API
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -422,10 +422,6 @@ func startWebApi() {
 			c.JSON(500, gin.H{"error": "P2P host not initialized yet"})
 			return
 		}
-
-		logger.Info("🔍 Querying peer:", request.PeerId)
-
-		// Convert request.Embedding.Vector to Vector type
 		vector := Vector(request.Embedding.Vector)
 
 		req := QueryRequest{
@@ -435,16 +431,35 @@ func startWebApi() {
 			MatchCount:   request.Embedding.MatchCount,
 			Vector:       vector,
 		}
-		// Send the query to the remote peer via libp2p
-		result, err := queryRemotePeer(c.Request.Context(), globalHost, request.PeerId, req)
-		if err != nil {
-			logger.Warn("❌ Error querying peer:", err)
-			c.JSON(500, gin.H{"error": "Failed to query peer", "details": err.Error()})
-			return
-		}
 
-		// Return the query result
-		c.JSON(200, result)
+		if request.PeerId == globalHost.ID().String() {
+			logger.Info("🔍 Querying self")
+			var result interface{}
+			var err error
+
+			result, err = forwardQueryToLocalAPI(req)
+			if err != nil {
+				logger.Warn("❌ Error querying self:", err)
+				c.JSON(500, gin.H{"error": "Failed to query self", "details": err.Error()})
+				return
+			} else {
+				logger.Info("✅ Successfully queried self")
+				c.JSON(200, result)
+			}
+		} else {
+			logger.Info("🔍 Querying peer:", request.PeerId)
+
+			// Send the query to the remote peer via libp2p
+			result, err := queryRemotePeer(c.Request.Context(), globalHost, request.PeerId, req)
+			if err != nil {
+				logger.Warn("❌ Error querying peer:", err)
+				c.JSON(500, gin.H{"error": "Failed to query peer", "details": err.Error()})
+				return
+			}
+
+			// Return the query result
+			c.JSON(200, result)
+		}
 	})
 
 	r.Run(":8888")
