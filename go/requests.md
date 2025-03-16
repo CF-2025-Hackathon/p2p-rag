@@ -64,15 +64,15 @@ curl -X POST http://localhost:8888/query -H "Content-Type: application/json" -d 
 
 {
     "nodeId":"12D3KooWE9AZaabAnMyBwEbZTMN73EWat2YhV9ViyXZpzZ9iUaMJ",
+    "queryId": "1234567890",
     "embedding": 
     {
-        "queryId": "1234567890",
         "expertise_key": "machine_learning",
         "model": "nomic-embed-text",
         "vector": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
         "match_count": 15
     }
-}'
+}
 ```
 
 ## Answer to query:
