@@ -1,33 +1,13 @@
 ## 1. Install Laravel
 1. ```php artisan sail:install```
-1. Select: `mysql` and `postgres`
+1. Select: `mysql`
 1. Copy `.env.example` to `.env`
 1. ```./vendor/bin/sail up -d```
-1. ```./vendor/bin/sail exec ollama ollama pull gemma3:1b```
+1. (optional) ```./vendor/bin/sail exec ollama ollama pull gemma3:1b```
 1. ```./vendor/bin/sail exec ollama ollama pull nomic-embed-text```
 1. ```./vendor/bin/sail artisan key:generate```
 1. ```./vendor/bin/sail artisan migrate```
-1. ```./vendor/bin/sail artisan serve```
-
-## Shell
-1. ```./vendor/bin/sail shell```
-
-## Down/Close
-1. ```./vendor/bin/sail down```
-
-## Test Ollama
-1. ```./vendor/bin/sail exec ollama ollama list```
-1. ```./vendor/bin/sail exec ollama ollama run gemma3:1b "The sky is blue because of Rayleigh scattering"```
-
-## Open WebUI
-1. ```http://localhost:3001/```
-
-## Open pgAdmin
-1. ```http://localhost:5050/```
-
-## Test:
-```http://localhost/api/p2p```
-
+1. (optional) ```./vendor/bin/sail artisan serve```
 
 ## 2. Install Supabase
 1. `https://supabase.com/docs/guides/local-development`
@@ -53,12 +33,30 @@ using (true);`
 1. Go to `Table Editor`
 1. Go to table `site_pages`, and import file: `dummy-data/site_pages_rows.csv`
 
-
 ## 4. RUN
 1. Open Postman
 1. Set: `Content-Type: application/json`
 1. Set: `Accept: application/json`
 1. `http://localhost/api/query?question=why&perPage=5`
+
+
+#### Shell
+1. ```./vendor/bin/sail shell```
+
+#### Down/Close
+1. ```./vendor/bin/sail down```
+
+#### Test Ollama
+1. ```./vendor/bin/sail exec ollama ollama list```
+1. ```./vendor/bin/sail exec ollama ollama run gemma3:1b "The sky is blue because of Rayleigh scattering"```
+
+#### Open WebUI
+1. ```http://localhost:3001/```
+
+#### Open pgAdmin
+1. ```http://localhost:5050/```
+
+
 
 
 
