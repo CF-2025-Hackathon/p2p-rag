@@ -5,11 +5,15 @@ from typing import Dict, List
 import os
 from datetime import datetime
 import logging
+import uuid
 from .embedding import get_embedding_from_ollama
 from .nodeselector import NodeSelector
 from supabase import create_client, Client
 from os import environ
 from dotenv import load_dotenv
+from .pydantic_ai_expert import PydanticAIDeps, retrieve_relevant_documentation, pydantic_ai_expert
+from openai import AsyncOpenAI
+
 # Logging configuration
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,8 +24,20 @@ load_dotenv()
 
 # Supabase Konfiguration
 supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_KEY")
+supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
+
+# OpenAI Client Konfiguration
+openai_client = AsyncOpenAI(
+    base_url=os.getenv('LLM_BASE_URL'),
+    api_key="dummy_key"
+)
+
+# Initialize deps
+deps = PydanticAIDeps(
+    supabase=supabase,
+    client=openai_client
+)
 
 # Aktualisierte Modelle für das neue Format
 class EmbeddingData(BaseModel):
@@ -103,7 +119,7 @@ async def startup_event():
     gossip_cache = await load_gossip_data()
     logger.info(f"Server started. Loaded {len(gossip_cache)} existing entries.")
 
-@app.post("/topic")
+@app.post("/expertise")
 async def receive_gossip(gossip: GossipData):
     """
     Empfängt Gossip-Daten von anderen Nodes.
@@ -137,39 +153,34 @@ async def process_query(query: QueryRequest):
     """
     try:
         # Get vector from Ollama
-        vector = await get_embedding_from_ollama(query.question, query.embedding_model)
+        # vector = await get_embedding_from_ollama(query.question, query.embedding_model)
         
-        # Initialize NodeSelector and find best matches
-        node_selector = NodeSelector()
-        best_matches = await node_selector.find_best_match(
-            query=query.question,
-            model_name=query.embedding_model,
-            top_k=1  # Return top 1 matches
-        )
-        # # TODO: where is the go-client running? 
-        # async with httpx.AsyncClient() as client:
-        #     client_answer = await client.post(
-        #         "http://localhost:8080/api/answer",
-        #         json={
-        #             "node_id": best_matches[0][0], 
-        #             "vector": vector
-        #         }
-        #     )
+        # Run the agent in a stream
+        result = await retrieve_relevant_documentation(deps, query)
 
-        # TODO: return has to be the answer from the go client
-        return {
-            "status": "success",
-            "vector": vector[:5],
-            "model_used": query.embedding_model,
-            "best_matches": [
-                {
-                    "node_id": node_id,
-                    "similarity_score": float(score),
-                    "embedding_model": model
-                }
-                for node_id, score, model in best_matches
-            ]
+
+        # Erstelle die formatierte Antwort
+        formatted_response = {
+            "nodeId": query['nodeId'],
+            "query": {
+                "queryId": query['queryId'],
+                "model": query.embedding_model,
+                "vector": query['embedding']['vector']  
+                    },
+            "answer": {
+                "documents": [
+                    {
+                        "title": doc.get("title", ""),
+                        "content": doc.get("content", ""),
+                        "source": doc.get("source", ""),
+                        "metadata": doc.get("metadata", {})
+                    }
+                    for doc in result.get("documents", [])
+                ]
+            }
         }
+
+        return formatted_response
     
     except Exception as e:
         logger.error(f"Error processing query: {str(e)}")

@@ -8,9 +8,7 @@ import json
 import logfire
 from supabase import Client
 from openai import AsyncOpenAI
-from nodeselector import NodeSelector
-import uuid
-import httpx
+
 # Import all the message part classes
 from pydantic_ai.messages import (
     ModelMessage,
@@ -73,47 +71,31 @@ def display_message_part(part):
             st.markdown(part.content)
 
 
-async def get_relevant_context(user_input: str, deps: PydanticAIDeps, embedding_model: str) -> str:
+async def get_relevant_context(user_input: str, deps: PydanticAIDeps) -> str:
     """Hole relevante Dokumentation für die Benutzeranfrage."""
     try:
-        node_selector = NodeSelector()
-        best_matches = await node_selector.find_nodes_above_threshold(
-            query=user_input,
-            model_name=embedding_model,
-            top_k=1,    
-            threshold=0.6
-        )
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "http://localhost:8888/query",
-                json={
-                    "nodeId": best_matches[0]['node_id'],
-                    "queryId": str(uuid.uuid4()),
-                    "embedding": {
-                        "expertise_key": "machine_learning",
-                        "model": best_matches[0]['embedding_model'],
-                        "vector": best_matches[1],
-                        "match_count": 15
-                    }
-                }
-            )
-            
-            client_answer = response.json()
+        query_embedding = await get_embedding(user_input, deps.client)
+        
+        result = deps.supabase.rpc(
+            'match_site_pages',
+            {
+                'query_embedding': query_embedding,
+                'match_count': 15,
+                'filter': {'source': database_source}
+            }
+        ).execute()
 
         # Log des RAG-Ergebnisses
         print("RAG Rohergebnis:")
-        print(json.dumps(client_answer, indent=2, ensure_ascii=False))
+        print(json.dumps(result.data, indent=2, ensure_ascii=False))
 
-        if not client_answer or "answer" not in client_answer or not client_answer["answer"]["documents"]:
+        if not result.data:
             return "Keine relevanten Informationen gefunden."
 
         formatted_chunks = []
-        for doc in client_answer["answer"]["documents"]:
+        for doc in result.data:
             chunk_text = f"""
             # {doc['title']}
-            Quelle: {doc['source']}
-            
             {doc['content']}
             """
             formatted_chunks.append(chunk_text)
@@ -130,7 +112,7 @@ async def run_agent_with_streaming(user_input: str):
             supabase=supabase,
             client=openai_client
         )
-        relevant_context = await get_relevant_context(user_input, deps, embedding_model="nomic-embed-text")
+        relevant_context = await get_relevant_context(user_input, deps)
         status.update(label="Generiere Antwort...", state="running")
         
         # Erweitere die Benutzeranfrage um den Kontext
@@ -145,12 +127,10 @@ async def run_agent_with_streaming(user_input: str):
 
         # Run the agent in a stream
         async with pydantic_ai_expert.run_stream(
-                system_prompt=enhanced_prompt,
+                enhanced_prompt,
                 deps=deps,
                 message_history=st.session_state.messages[:-1],
-                tools= []
         ) as result:
-            print(result)
             # We'll gather partial text to show incrementally
             partial_text = ""
             message_placeholder = st.empty()

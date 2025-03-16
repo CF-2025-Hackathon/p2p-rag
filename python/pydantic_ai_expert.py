@@ -91,13 +91,13 @@ async def retrieve_relevant_documentation(ctx: RunContext[PydanticAIDeps], user_
 
     try:
         # Get the embedding for the query
-        query_embedding = await get_embedding(user_query, ctx.deps.client)
+        # query_embedding = await get_embedding(user_query, ctx.deps.client)
 
         # Query Supabase for relevant documents
         result = ctx.deps.supabase.rpc(
             'match_site_pages',
             {
-                'query_embedding': query_embedding,
+                'query_embedding': user_query['embedding']['vector'],
                 'match_count': 15,
                 'filter': {'source': database_source}
             }
