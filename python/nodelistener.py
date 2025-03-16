@@ -7,18 +7,32 @@ from datetime import datetime
 import logging
 from .embedding import get_embedding_from_ollama
 from .nodeselector import NodeSelector
-
+from supabase import create_client, Client
+from os import environ
+from dotenv import load_dotenv
 # Logging configuration
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Model for incoming gossip data
-class GossipData(BaseModel):
-    node_id: str
-    embedding_model: str
+load_dotenv()
+
+# Supabase Konfiguration
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(supabase_url, supabase_key)
+
+# Aktualisierte Modelle für das neue Format
+class EmbeddingData(BaseModel):
+    key: str
+    expertise: str
+    model: str
     vector: List[float]
+
+class GossipData(BaseModel):
+    nodeId: str
+    embeddings: List[EmbeddingData]
 
 # Model for query requests
 class QueryRequest(BaseModel):
@@ -31,65 +45,89 @@ GOSSIP_FILE = "gossip_data.json"
 # In-Memory cache for gossip data
 gossip_cache: Dict[str, dict] = {}
 
-def load_gossip_data():
-    """Loads existing gossip data from the JSON file"""
-    if os.path.exists(GOSSIP_FILE):
-        try:
-            with open(GOSSIP_FILE, 'r') as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            logger.warning("Corrupted JSON file found. Creating new empty file.")
-            return {}
-    return {}
+async def load_gossip_data() -> Dict[str, dict]:
+    """Lädt existierende Gossip-Daten aus der Supabase-Tabelle"""
+    try:
+        response = supabase.table('node_embeddings').select('*').execute()
+        gossip_data = {}
+        
+        for row in response.data:
+            node_id = row['node_id']
+            if node_id not in gossip_data:
+                gossip_data[node_id] = {
+                    "embeddings": []
+                }
+            
+            gossip_data[node_id]["embeddings"].append({
+                "key": row['embedding_key'],
+                "expertise": row['expertise'],
+                "model": row['embedding_model'],
+                "vector": row['vector']
+            })
+            
+        return gossip_data
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Daten aus Supabase: {str(e)}")
+        return {}
 
-def save_gossip_data():
-    """Saves gossip data to the JSON file"""
-    with open(GOSSIP_FILE, 'w') as f:
-        json.dump(gossip_cache, f, indent=4)
+async def save_gossip_data(node_id: str, embeddings: List[EmbeddingData]):
+    """Speichert alle Embeddings für einen Node in der Supabase-Tabelle"""
+    try:
+        # Erstelle Liste von Einträgen für Bulk Upsert
+        entries = [
+            {
+                'node_id': node_id,
+                'embedding_key': emb.key,
+                'expertise': emb.expertise,
+                'embedding_model': emb.model,
+                'vector': emb.vector,
+                'last_updated': datetime.now().isoformat()
+            }
+            for emb in embeddings
+        ]
+        
+        # Lösche zuerst alle existierenden Einträge für diesen node_id
+        await supabase.table('node_embeddings').delete().eq('node_id', node_id).execute()
+        
+        # Füge die neuen Einträge hinzu
+        response = await supabase.table('node_embeddings').insert(entries).execute()
+        return response
+    except Exception as e:
+        logger.error(f"Fehler beim Speichern in Supabase: {str(e)}")
+        raise
 
 @app.on_event("startup")
 async def startup_event():
     """Executed when the application starts"""
     global gossip_cache
-    gossip_cache = load_gossip_data()
+    gossip_cache = await load_gossip_data()
     logger.info(f"Server started. Loaded {len(gossip_cache)} existing entries.")
 
 @app.post("/topic")
 async def receive_gossip(gossip: GossipData):
     """
-    Receives gossip data from other nodes.
-    If the node_id already exists, the entry will be updated.
-    If the node_id is new, a new entry will be created.
+    Empfängt Gossip-Daten von anderen Nodes.
+    Ersetzt alle existierenden Embeddings für die gegebene node_id.
     """
     try:
-        # Reload latest data from file before updating
+        # Speichere die neuen Daten
+        await save_gossip_data(gossip.nodeId, gossip.embeddings)
+        
+        # Aktualisiere den Cache
         global gossip_cache
-        gossip_cache = load_gossip_data()
+        gossip_cache = await load_gossip_data()
         
-        is_update = gossip.node_id in gossip_cache
-        
-        # Update or add new gossip data
-        gossip_cache[gossip.node_id] = {
-            "embedding_model": gossip.embedding_model,
-            "vector": gossip.vector,
-            "last_updated": datetime.now().isoformat()
-        }
-        
-        # Save the updated data
-        save_gossip_data()
-        
-        action_msg = "updated" if is_update else "added"
-        logger.info(f"Node {gossip.node_id} successfully {action_msg}")
+        logger.info(f"Node {gossip.nodeId} erfolgreich aktualisiert mit {len(gossip.embeddings)} Embeddings")
         
         return {
             "status": "success", 
-            "message": f"Gossip from Node {gossip.node_id} successfully {action_msg}",
-            "action": "updated" if is_update else "created"
+            "message": f"Gossip von Node {gossip.nodeId} erfolgreich gespeichert",
+            "embeddings_count": len(gossip.embeddings)
         }
     
     except Exception as e:
-        logger.error(f"Error processing gossip: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing gossip: {str(e)}")
+        logger.error(f"Fehler bei der Verarbeitung des Gossips: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Fehler bei der Verarbeitung des Gossips: {str(e)}")
 
 @app.post("/query")
 async def process_query(query: QueryRequest):
