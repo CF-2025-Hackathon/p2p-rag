@@ -11,6 +11,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ipfs/go-log/v2"
@@ -43,12 +44,13 @@ var knownTopicsMutex sync.RWMutex
 var logger = log.Logger(systemName)
 var topic *pubsub.Topic
 var globalHost host.Host
+var clientApiUrl string
 
 // notifyExternalApiAboutGossipedTopic sends an HTTP request to notify an external API about a gossiped topic
 func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
-	apiUrl := "http://localhost:9999/"
+	apiUrl := strings.TrimRight(clientApiUrl, "/") + "/expertise"
 
-	logger.Info("📡 Notifying external API about gossiped topic:", "from peer:", peerId)
+	logger.Info("📡 Notifying external API about gossiped topic:", "from peer: ", peerId, " to ", apiUrl)
 	// Use the Gin HTTP client to make the POST request
 	// This is a non-blocking call to avoid slowing down the gossip process
 	go func() {
@@ -79,7 +81,7 @@ func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
 		if resp.StatusCode >= 400 {
 			logger.Warn("❌ External API returned error status:", resp.StatusCode)
 		} else {
-			logger.Debug("✅ Successfully notified external API about topic")
+			logger.Info("✅ Successfully notified external API about topic")
 		}
 	}()
 }
@@ -433,6 +435,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	clientApiUrl = config.ClientApiUrl
 
 	opts := []libp2p.Option{
 		libp2p.NATPortMap(),
