@@ -6,4 +6,10 @@
 /go/p2p-rag
 /go/vendor
 /go/tmp
+python/__pycache__/run_chroma_server.cpython-312.pyc
+.gitignore
+python/tests/create_gossip_chroma.py
+python/tests/__pycache__/create_chroma_gossip.cpython-312.pyc
+chroma.log
+python/__pycache__/chromastore.cpython-312.pyc
 /laravel/.DS_Store

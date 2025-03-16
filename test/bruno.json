@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "CF2025_P2P",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}
