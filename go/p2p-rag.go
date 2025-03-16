@@ -30,6 +30,11 @@ import (
 const systemName = "rendezvous"
 const vectorDimension = 768
 
+// Protocol ID for query streams
+const queryProtocolID = "/p2p-rag/query/0.0.1"
+
+const clientApiUrl = "http://localhost:9999"
+
 // Vector is a type representing a 768-dimensional vector of float64 values
 type Vector [vectorDimension]float64
 
@@ -46,7 +51,7 @@ var globalHost host.Host
 
 // notifyExternalApiAboutGossipedTopic sends an HTTP request to notify an external API about a gossiped topic
 func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
-	apiUrl := "http://localhost:9999/topic"
+	apiTopicUrl := clientApiUrl + "/topic"
 
 	logger.Info("📡 Notifying external API about gossiped topic:", "from peer:", peerId)
 	// Use the Gin HTTP client to make the POST request
@@ -69,7 +74,7 @@ func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
 			return
 		}
 
-		resp, err := client.Post(apiUrl, "application/json", bytes.NewReader(jsonData))
+		resp, err := client.Post(apiTopicUrl, "application/json", bytes.NewReader(jsonData))
 		if err != nil {
 			logger.Warn("❌ Failed to notify external API:", err)
 			return
@@ -83,9 +88,6 @@ func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
 		}
 	}()
 }
-
-// Protocol ID for query streams
-const queryProtocolID = "/p2p-rag/query/0.0.1"
 
 // QueryRequest represents a request to query a peer
 type QueryRequest struct {
@@ -168,7 +170,7 @@ func forwardQueryToLocalAPI(queryVector Vector) (interface{}, error) {
 
 	// Send the query to the local search API
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Post("http://localhost:9999/query", "application/json", bytes.NewReader(jsonData))
+	resp, err := client.Post(clientApiUrl+"/query", "application/json", bytes.NewReader(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to send query to search API: %w", err)
 	}
