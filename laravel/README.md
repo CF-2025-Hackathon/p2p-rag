@@ -1,7 +1,8 @@
-## Install
+## 1. Install Laravel
 1. ```php artisan sail:install```
 1. ```./vendor/bin/sail up -d```
 1. ```./vendor/bin/sail exec ollama ollama pull gemma3:1b```
+1. ```./vendor/bin/sail exec ollama ollama pull nomic-embed-text```
 1. ```./vendor/bin/sail artisan key:generate```
 1. ```./vendor/bin/sail artisan migrate```
 1. ```./vendor/bin/sail artisan serve```
@@ -21,6 +22,43 @@
 
 ## Open pgAdmin
 1. ```http://localhost:5050/```
+
+## Test:
+```http://localhost/api/p2p```
+
+
+## 2. Install Supabase
+1. `https://supabase.com/docs/guides/local-development`
+
+## 3. Connect Laravel with Supabase
+1. ```docker network create my_network```
+1. ```docker network connect my_network laravel-laravel.test-1```
+1. ```docker network connect my_network supabase_db_supabase```
+1. ```docker network connect my_network sail-pgadmin```
+1. Open docker container supabase > supabase_db_supabase
+1. ```psql -h 127.0.0.1 -U postgres -d postgres -W```
+1. ```CREATE USER new_user WITH PASSWORD 'new_password';```
+1. ```GRANT CONNECT ON DATABASE postgres TO new_user;```
+1. ```GRANT SELECT ON ALL TABLES IN SCHEMA public TO new_user;```
+1. `create policy "Allow public read access"
+on site_pages
+for select
+to public
+using (true);`
+1. ```GRANT SELECT ON ALL TABLES IN SCHEMA public TO new_user;```
+1. Run in `http://127.0.0.1:54323/project/default/sql/1` file: `dummy-data/supabase-db-setup.sql`
+1. Open in `http://127.0.0.1:54323/project/default`
+1. Go to `Table Editor`
+1. Go to table `site_pages`, and import file: `dummy-data/site_pages_rows.csv`
+
+
+## 4. RUN
+1. Open Postman
+1. Set: `Content-Type: application/json`
+1. Set: `Accept: application/json`
+1. `http://localhost/api/query?question=why&perPage=5`
+
+
 
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
