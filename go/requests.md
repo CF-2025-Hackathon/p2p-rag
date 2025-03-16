@@ -4,8 +4,12 @@
 ## Announce a topic (client -> network):
 The client announces a RAG database to the network:
 
+``` shell
+curl -X POST http://localhost:8888/expertise -H "Content-Type: application/json" -d '...'
+```
+
 ``` json
-curl -X POST http://localhost:8888/expertise -H "Content-Type: application/json" -d '
+
 {
     "embeddings": [
     {
@@ -21,12 +25,16 @@ curl -X POST http://localhost:8888/expertise -H "Content-Type: application/json"
         "model": "nomic-embed-text",
         "vector": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
     }]
-}'   
+}
 ```
 
 ## Announce a topic (network -> client, through gossip):
+
+``` shell
+curl -X POST http://localhost:9999/expertise -H "Content-Type: application/json" -d '...'
+```
+
 ``` json
-curl -X POST http://localhost:9999/expertise -H "Content-Type: application/json" -d '
 {
     "nodeId":"12D3KooWE9AZaabAnMyBwEbZTMN73EWat2YhV9ViyXZpzZ9iUaMJ",
     "embeddings": [
@@ -43,13 +51,17 @@ curl -X POST http://localhost:9999/expertise -H "Content-Type: application/json"
         "model": "nomic-embed-text",
         "vector": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
     }]
-}'   
+}
 ```
 
 ## Perform a query (client -> network -> knowledge base:
 
+``` shell
+curl -X POST http://localhost:8888/query -H "Content-Type: application/json" -d '...'
+```
+
 ``` json
-curl -X POST http://localhost:8888/query -H "Content-Type: application/json" -d '
+
 {
     "nodeId":"12D3KooWE9AZaabAnMyBwEbZTMN73EWat2YhV9ViyXZpzZ9iUaMJ",
     "embedding": 
