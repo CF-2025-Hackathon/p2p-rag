@@ -54,6 +54,7 @@ type Expertise struct {
 var myExpertise []Expertise
 var myExpertiseMutex sync.RWMutex
 var logger = log.Logger(systemName)
+
 var topic *pubsub.Topic
 var globalHost host.Host
 
@@ -465,6 +466,8 @@ func startWebApi() {
 	r.Run(":8888")
 }
 
+var peerManager = NewPeerManager()
+
 func main() {
 	go startWebApi()
 	log.SetAllLoggers(log.LevelError)
@@ -610,13 +613,14 @@ func main() {
 				} else {
 					rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 					peerManager.AddPeer(peer.ID, stream)
-					go writeData(rw)
-					go readData(rw)
+					go writeData(rw, peer.ID)
+					go readData(rw, peer.ID)
 				}
 
 				logger.Info("*** 🥳 Connected to: ", peer)
 			} else {
 				peerManager.RemovePeer(peer.ID)
+				logger.Warn("Connection failed, peer ", peer.ID, " was removed.")
 			}
 
 			logger.Warn("No more peers 😢- Trying again")
@@ -633,8 +637,8 @@ func handleStream(stream network.Stream) {
 	// Create a buffer stream for non-blocking read and write.
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 
-	go readData(rw)
-	go writeData(rw)
+	go readData(rw, "")
+	go writeData(rw, "")
 
 	// 'stream' will stay open until you close it (or the other side closes it).
 }
@@ -702,11 +706,12 @@ func listenForGossip(sub *pubsub.Subscription) {
 	}
 }
 
-func readData(rw *bufio.ReadWriter) {
+func readData(rw *bufio.ReadWriter, peerId peer.ID) {
 	for {
 		str, err := rw.ReadString('\n')
 		if err != nil {
 			fmt.Println("Error reading from buffer")
+			peerManager.RemovePeer(peerId)
 			break
 		}
 
@@ -722,7 +727,7 @@ func readData(rw *bufio.ReadWriter) {
 	}
 }
 
-func writeData(rw *bufio.ReadWriter) {
+func writeData(rw *bufio.ReadWriter, perId peer.ID) {
 	stdReader := bufio.NewReader(os.Stdin)
 
 	for {
@@ -736,12 +741,12 @@ func writeData(rw *bufio.ReadWriter) {
 		_, err = rw.WriteString(fmt.Sprintf("%s\n", sendData))
 		if err != nil {
 			fmt.Println("Error writing to buffer")
-			panic(err)
+			peerManager.RemovePeer(perId)
 		}
 		err = rw.Flush()
 		if err != nil {
 			fmt.Println("Error flushing buffer")
-			panic(err)
+			peerManager.RemovePeer(perId)
 		}
 	}
 }
