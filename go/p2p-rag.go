@@ -34,8 +34,6 @@ const vectorDimension = 768
 // Protocol ID for query streams
 const queryProtocolID = "/p2p-rag/query/0.0.1"
 
-const clientApiUrl = "http://localhost:9999"
-
 // Vector is a type representing a 768-dimensional vector of float64 values
 
 type Vector [vectorDimension]float64
@@ -60,10 +58,10 @@ var globalHost host.Host
 var clientApiUrl string
 
 // notifyExternalApiAboutGossipedTopic sends an HTTP request to notify an external API about a gossiped topic
-func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
-	apiUrl := strings.TrimRight(clientApiUrl, "/") + "/expertise"
+func notifyExternalApiAboutGossipedTopic(expertiseData Expertise, peerId string) {
+	apiExpertiseUrl := clientApiUrl + "/expertise"
 
-	logger.Info("📡 Notifying external API about gossiped topic:", "from peer: ", peerId, " to ", apiUrl)
+	logger.Info("📡 Notifying external API about gossiped topic:", "from peer: ", peerId, " to ", apiExpertiseUrl)
 	// Use the Gin HTTP client to make the POST request
 	// This is a non-blocking call to avoid slowing down the gossip process
 	go func() {
@@ -503,7 +501,7 @@ func main() {
 		panic(err)
 	}
 
-	clientApiUrl = config.ClientApiUrl
+	clientApiUrl = strings.TrimRight(config.ClientApiUrl, "/")
 
 	opts := []libp2p.Option{
 		libp2p.NATPortMap(),
