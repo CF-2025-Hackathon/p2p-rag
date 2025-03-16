@@ -1,6 +1,7 @@
 .idea
 .vscode
 *.exe
+.DS_Store
 /go-node
 /go/p2p-rag
 /go/vendor
@@ -11,3 +12,4 @@ python/tests/create_gossip_chroma.py
 python/tests/__pycache__/create_chroma_gossip.cpython-312.pyc
 chroma.log
 python/__pycache__/chromastore.cpython-312.pyc
+/laravel/.DS_Store

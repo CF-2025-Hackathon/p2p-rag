@@ -1,0 +1,60 @@
+{
+  
+  
+    "message_schema": {
+      "query": {
+        "message_type": "query",
+        "node_id": "Qm123abc...",
+        "topic": "retrieval",
+        "query": {
+          "query_id": "xyz-123",
+          "query_text": "What are the latest advancements in quantum computing?",
+          "query_embedding": [0.12, 0.87, 0.34],
+          
+        },
+        "routing": {
+          "source": "Qm123abc...",
+          "destination": "Qm789xyz...",
+          
+        }
+      },
+      
+      "response": {
+        "message_type": "response",
+        "node_id": "Qm789xyz...",
+        "query_id": "xyz-123",
+        "response_type": "answer",
+        "documents": [
+          {
+            "cid": "bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+            "topic": "quantum computing"
+          }
+        ],
+        "routing": {
+          "source": "Qm789xyz...",
+          "destination": "Qm123abc...",
+          
+        }
+      },
+      
+      "node_registration": {
+        "message_type": "node_registration",
+        "node_id": "QmNewNode123...",
+        "event_type": "join",
+        "details": {
+          "expertise": ["machine learning", "distributed systems"],
+          "status": "active"
+        }
+      },
+      
+      "node_departure": {
+        "message_type": "node_departure",
+        "node_id": "QmLeavingNode456...",
+        "event_type": "leave",
+        "details": {
+          "reason": "shutdown"
+        }
+      }
+    }
+  }
+  
