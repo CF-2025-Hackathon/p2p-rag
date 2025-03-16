@@ -3,10 +3,21 @@ import json
 from datetime import datetime
 import logging
 from ollama import AsyncClient
+from supabase import create_client, Client
+from os import environ
+from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
+
+# Supabase configuration
+supabase_url = environ.get("SUPABASE_URL")
+supabase_key = environ.get("SUPABASE_SERVICE_KEY")
+supabase: Client = create_client(supabase_url, supabase_key)
 
 async def create_gossip_data(node_id: str, text: str, model_name: str = "nomic-embed-text") -> dict:
     """
@@ -59,17 +70,18 @@ async def create_gossip_data(node_id: str, text: str, model_name: str = "nomic-e
                 logger.error(f"Response type: {type(response)}")
                 raise ValueError(error_msg)
             
-            # Create gossip data for the node
-            gossip_data = {
-                node_id: {
-                    "embedding_model": model_name,
-                    "vector": vector,
-                    "last_updated": datetime.now().isoformat()
-                }
+            # Create entry for Supabase
+            entry = {
+                'node_id': node_id,
+                'embedding_key': text[:50],  # Use first 50 chars of text as key
+                'expertise': text,
+                'embedding_model': model_name,
+                'vector': vector,
+                'last_updated': datetime.now().isoformat()
             }
             
             logger.info(f"Successfully created embedding for {node_id}")
-            return gossip_data
+            return entry
             
         except ValueError as ve:
             logger.error(f"Validation error for node {node_id}: {str(ve)}")
@@ -88,7 +100,7 @@ async def create_gossip_data(node_id: str, text: str, model_name: str = "nomic-e
 
 async def create_multiple_gossip_data(node_texts: dict, model_name: str = "nomic-embed-text") -> dict:
     """
-    Creates gossip data for multiple nodes.
+    Creates gossip data for multiple nodes and saves them to Supabase.
     
     Args:
         node_texts: Dictionary with node IDs as keys and texts as values
@@ -101,27 +113,32 @@ async def create_multiple_gossip_data(node_texts: dict, model_name: str = "nomic
         ValueError: If the model_name is invalid or not available
         ConnectionError: If the Ollama server is not reachable
     """
-    all_gossip_data = {}
+    entries = []
     
     for node_id, text in node_texts.items():
         try:
-            node_data = await create_gossip_data(node_id, text, model_name)
-            all_gossip_data.update(node_data)
+            entry = await create_gossip_data(node_id, text, model_name)
+            if entry:
+                entries.append(entry)
         except (ValueError, ConnectionError) as e:
             logger.error(f"Failed to process node {node_id}: {str(e)}")
             raise
     
-    if all_gossip_data:
-        # Save to file
-        with open("gossip_data.json", "w", encoding="utf-8") as f:
-            json.dump(all_gossip_data, f, indent=2, ensure_ascii=False)
+    if entries:
+        try:
+            # Save to Supabase
+            response = supabase.table('node_embeddings').insert(entries).execute()
             
-        logger.info("Gossip data created successfully!")
-        logger.info(f"Nodes created: {list(all_gossip_data.keys())}")
+            logger.info("Gossip data saved to Supabase successfully!")
+            logger.info(f"Nodes created: {[entry['node_id'] for entry in entries]}")
+            
+            return {entry['node_id']: entry for entry in entries}
+        except Exception as e:
+            logger.error(f"Failed to save to Supabase: {str(e)}")
+            raise
     else:
         logger.error("No gossip data was created!")
-    
-    return all_gossip_data
+        return {}
 
 if __name__ == "__main__":
     # Example usage
