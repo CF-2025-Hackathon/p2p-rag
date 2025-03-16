@@ -39,6 +39,7 @@ curl -X POST http://localhost:8888/query -H "Content-Type: application/json" -d 
     "nodeId":"12D3KooWE9AZaabAnMyBwEbZTMN73EWat2YhV9ViyXZpzZ9iUaMJ",
     "query": 
     {
+        "queryId": "1234567890",
         "model": "nomic-embed-text",
         "vector": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
     },
