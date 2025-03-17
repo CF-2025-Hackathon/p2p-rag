@@ -4,8 +4,6 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use App\Models\Message;
-use Illuminate\Support\Facades\Http;
-use GuzzleHttp\Client;
 use App\Http\Controllers\Api\P2PController;
 
 class ChatMessages extends Component
@@ -23,6 +21,13 @@ class ChatMessages extends Component
     public function mount()
     {
         $this->messages = Message::latest()->take(20)->get()->reverse()->toArray();
+    }
+
+    public function clearMessages()
+    {
+        Message::where('id', '>', 0)->delete();
+
+        $this->messages = [];
     }
 
     public function refreshChat()
@@ -46,8 +51,6 @@ class ChatMessages extends Component
             'message' => $data->response[0]->summary,
             'you' => false,
         ]);
-
-        sleep(1); // Another simulated delay
 
         // Send the message
         $this->messages = Message::latest()->take(20)->get()->reverse()->toArray();
