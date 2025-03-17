@@ -1,5 +1,7 @@
 # Peer-to-Peer Federated RAG Framework
 
+![p2p-rag logo](./documentation/p2p-rag-high-resolution-logo-noback.png)
+
 ## About the Hackathon
 See [project page](https://hackathon.cloudfest.com/project/peer-to-peer-federated-rag-framework/) for more details.
 
@@ -41,6 +43,8 @@ Now you can start to ask questions in one of the chat dashboard interfaces.
 
 ## Documentation
 ### P2P Communcation Flow
+![communication schema](./documentation/p2p-rag.png)
+
 #### First Flow
 Starting in the project we first wanted to design the communication flow.
 
