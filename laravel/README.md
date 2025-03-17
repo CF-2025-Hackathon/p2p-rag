@@ -1,26 +1,60 @@
-## Install
+## 1. Install Laravel
 1. ```php artisan sail:install```
+1. Select: `mysql`
+1. Copy `.env.example` to `.env`
 1. ```./vendor/bin/sail up -d```
-1. ```./vendor/bin/sail exec ollama ollama pull gemma3:1b```
+1. (optional) ```./vendor/bin/sail exec ollama ollama pull gemma3:1b```
+1. ```./vendor/bin/sail exec ollama ollama pull nomic-embed-text```
 1. ```./vendor/bin/sail artisan key:generate```
 1. ```./vendor/bin/sail artisan migrate```
-1. ```./vendor/bin/sail artisan serve```
+1. (optional) ```./vendor/bin/sail artisan serve```
 
-## Shell
+## 2. Install Supabase
+1. `https://supabase.com/docs/guides/local-development`
+
+## 3. Connect Laravel with Supabase
+1. ```docker network create my_network```
+1. ```docker network connect my_network laravel-laravel.test-1```
+1. ```docker network connect my_network supabase_db_supabase``` (or supabase_db_laravel)
+1. ```docker network connect my_network sail-pgadmin```
+1. Open docker container supabase > supabase_db_supabase (or supabase_db_laravel)
+1. ```psql -h 127.0.0.1 -U postgres -d postgres -W```
+1. ```CREATE USER new_user WITH PASSWORD 'new_password';```
+1. ```GRANT CONNECT ON DATABASE postgres TO new_user;```
+1. ```GRANT SELECT ON ALL TABLES IN SCHEMA public TO new_user;```
+1. Open in browser `http://127.0.0.1:54323/project/default/sql/1`, copy content file: `dummy-data/supabase-db-setup.sql` and paste in sql editor
+1. Open in `http://127.0.0.1:54323/project/default`
+1. Go to `Table Editor`
+1. Go to table `site_pages`, and import file: `dummy-data/site_pages_rows.csv`
+1. Run again in docker container supabase > supabase_db_supabase: ```GRANT CONNECT ON DATABASE postgres TO new_user;```
+1. Run again in docker container supabase > supabase_db_supabase: ```GRANT SELECT ON ALL TABLES IN SCHEMA public TO new_user;```
+
+## 4. RUN
+1. Open Postman
+1. Set: `Content-Type: application/json`
+1. Set: `Accept: application/json`
+1. `http://localhost/api/query?question=why&perPage=5`
+
+
+#### Shell
 1. ```./vendor/bin/sail shell```
 
-## Down/Close
+#### Down/Close
 1. ```./vendor/bin/sail down```
 
-## Test Ollama
+#### Test Ollama
 1. ```./vendor/bin/sail exec ollama ollama list```
 1. ```./vendor/bin/sail exec ollama ollama run gemma3:1b "The sky is blue because of Rayleigh scattering"```
 
-## Open WebUI
+#### Open WebUI
 1. ```http://localhost:3001/```
 
-## Open pgAdmin
+#### Open pgAdmin
 1. ```http://localhost:5050/```
+
+
+
+
 
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 

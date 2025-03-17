@@ -7,12 +7,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -30,25 +31,38 @@ import (
 const systemName = "rendezvous"
 const vectorDimension = 768
 
+// Protocol ID for query streams
+const queryProtocolID = "/p2p-rag/query/0.0.1"
+
 // Vector is a type representing a 768-dimensional vector of float64 values
+
 type Vector [vectorDimension]float64
 
-// Topic represents a semantic vector or embedding
-type Topic struct {
-	Vectors []Vector `json:"vectors"`
+type Embedding struct {
+	Key       string    `json:"key"`
+	Expertise string    `json:"expertise"`
+	Model     string    `json:"model"`
+	Vector    []float64 `json:"vector"`
 }
 
-var knownTopics []Topic
-var knownTopicsMutex sync.RWMutex
+// Expertise represents a semantic vector or embedding
+type Expertise struct {
+	Embeddings []Embedding `json:"embeddings"`
+}
+
+var myExpertise []Expertise
+var myExpertiseMutex sync.RWMutex
 var logger = log.Logger(systemName)
+
 var topic *pubsub.Topic
 var globalHost host.Host
+var clientApiUrl string
 
 // notifyExternalApiAboutGossipedTopic sends an HTTP request to notify an external API about a gossiped topic
-func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
-	apiUrl := "http://localhost:9999/topic"
+func notifyExternalApiAboutGossipedTopic(expertiseData Expertise, peerId string) {
+	apiExpertiseUrl := clientApiUrl + "/expertise"
 
-	logger.Info("📡 Notifying external API about gossiped topic:", "from peer:", peerId)
+	logger.Info("📡 Notifying external API about gossiped topic:", "from peer: ", peerId, " to ", apiExpertiseUrl)
 	// Use the Gin HTTP client to make the POST request
 	// This is a non-blocking call to avoid slowing down the gossip process
 	go func() {
@@ -56,11 +70,11 @@ func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
 
 		// Create a payload with topic data and peer ID
 		payload := struct {
-			Topic  Topic  `json:"topic"`
-			PeerId string `json:"peerId"`
+			NodeId     string      `json:"nodeId"`
+			Embeddings []Embedding `json:"embeddings"`
 		}{
-			Topic:  topicData,
-			PeerId: peerId,
+			NodeId:     peerId,
+			Embeddings: expertiseData.Embeddings,
 		}
 
 		jsonData, err := json.Marshal(payload)
@@ -69,7 +83,7 @@ func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
 			return
 		}
 
-		resp, err := client.Post(apiUrl, "application/json", bytes.NewReader(jsonData))
+		resp, err := client.Post(apiExpertiseUrl, "application/json", bytes.NewReader(jsonData))
 		if err != nil {
 			logger.Warn("❌ Failed to notify external API:", err)
 			return
@@ -79,17 +93,18 @@ func notifyExternalApiAboutGossipedTopic(topicData Topic, peerId string) {
 		if resp.StatusCode >= 400 {
 			logger.Warn("❌ External API returned error status:", resp.StatusCode)
 		} else {
-			logger.Debug("✅ Successfully notified external API about topic")
+			logger.Info("✅ Successfully notified external API about topic")
 		}
 	}()
 }
 
-// Protocol ID for query streams
-const queryProtocolID = "/p2p-rag/query/0.0.1"
-
 // QueryRequest represents a request to query a peer
 type QueryRequest struct {
-	Vector Vector `json:"vector"`
+	QueryId      string `json:"queryId"`
+	ExpertiseKey string `json:"expertise_key"`
+	Model        string `json:"model"`
+	MatchCount   int    `json:"match_count"`
+	Vector       Vector `json:"vector"`
 }
 
 // QueryResponse represents a response from a peer query
@@ -121,10 +136,13 @@ func handleQueryStream(stream network.Stream) {
 		return
 	}
 
+	// Debug log the request details
+	requestJson, _ := json.Marshal(request)
 	logger.Info("📥 Received query request from peer:", stream.Conn().RemotePeer())
+	logger.Info("📥 Request details:", string(requestJson))
 
 	// Forward the query to the local search API
-	result, err := forwardQueryToLocalAPI(request.Vector)
+	result, err := forwardQueryToLocalAPI(request)
 	if err != nil {
 		logger.Warn("❌ Error forwarding query to local API:", err)
 		sendErrorResponse(rw, fmt.Sprintf("Failed to process query: %s", err.Error()))
@@ -152,12 +170,26 @@ func handleQueryStream(stream network.Stream) {
 }
 
 // forwardQueryToLocalAPI forwards the query to the local search API
-func forwardQueryToLocalAPI(queryVector Vector) (interface{}, error) {
+func forwardQueryToLocalAPI(request QueryRequest) (interface{}, error) {
 	// Construct the query payload
+	type embeddingPayload struct {
+		Key        string `json:"expertise_key"`
+		Model      string `json:"model"`
+		Vector     Vector `json:"vector"`
+		MatchCount int    `json:"match_count"`
+	}
+
 	queryPayload := struct {
-		Vector Vector `json:"vector"`
+		QueryId   string           `json:"queryId"`
+		Embedding embeddingPayload `json:"embedding"`
 	}{
-		Vector: queryVector,
+		QueryId: request.QueryId,
+		Embedding: embeddingPayload{
+			Key:        request.ExpertiseKey,
+			Model:      request.Model,
+			Vector:     request.Vector,
+			MatchCount: request.MatchCount,
+		},
 	}
 
 	// Convert the payload to JSON
@@ -166,9 +198,12 @@ func forwardQueryToLocalAPI(queryVector Vector) (interface{}, error) {
 		return nil, fmt.Errorf("failed to marshal query data: %w", err)
 	}
 
+	// Debug log to check what's being sent
+	//logger.Info("📤 Forwarding query to local API with payload:", string(jsonData))
+
 	// Send the query to the local search API
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Post("http://localhost:9999/query", "application/json", bytes.NewReader(jsonData))
+	resp, err := client.Post(clientApiUrl+"/query", "application/json", bytes.NewReader(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to send query to search API: %w", err)
 	}
@@ -207,7 +242,7 @@ func sendErrorResponse(rw *bufio.ReadWriter, errorMsg string) {
 }
 
 // queryRemotePeer sends a query to a remote peer and returns the response
-func queryRemotePeer(ctx context.Context, host host.Host, peerIdStr string, queryVector Vector) (interface{}, error) {
+func queryRemotePeer(ctx context.Context, host host.Host, peerIdStr string, request QueryRequest) (interface{}, error) {
 	// Parse the peer ID string
 	peerID, err := peer.Decode(peerIdStr)
 	if err != nil {
@@ -229,10 +264,10 @@ func queryRemotePeer(ctx context.Context, host host.Host, peerIdStr string, quer
 	// Create a buffered reader and writer
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 
-	// Prepare the query request
-	request := QueryRequest{
-		Vector: queryVector,
-	}
+	// Debug log the request being sent
+	requestJson, _ := json.Marshal(request)
+	logger.Info("📤 Sending query request to peer:", peerID)
+	logger.Info("📤 Request details:", string(requestJson))
 
 	// Send the request
 	encoder := json.NewEncoder(rw.Writer)
@@ -266,68 +301,75 @@ func queryRemotePeer(ctx context.Context, host host.Host, peerIdStr string, quer
 func startWebApi() {
 	r := gin.Default()
 
-	r.GET("/topic", func(c *gin.Context) {
-		knownTopicsMutex.RLock()
+	r.GET("/expertise", func(c *gin.Context) {
+		myExpertiseMutex.RLock()
 		// Return a map of topic keys to their vector data
-		topics := make([]Topic, len(knownTopics))
-		for _, topicData := range knownTopics {
+		topics := make([]Expertise, len(myExpertise))
+		for _, topicData := range myExpertise {
 			topics = append(topics, topicData)
 		}
-		knownTopicsMutex.RUnlock()
+		myExpertiseMutex.RUnlock()
 
 		c.JSON(200, gin.H{
 			"topics": topics,
 		})
 	})
 
-	r.POST("/topic", func(c *gin.Context) {
-		type TopicRequest struct {
-			Vectors [][]float64 `json:"vectors" binding:"required"`
+	r.POST("/expertise", func(c *gin.Context) {
+		type EmbeddingJson struct {
+			Key       string    `json:"key" binding:"required"`
+			Model     string    `json:"model" binding:"required"`
+			Expertise string    `json:"expertise" binding:"required"`
+			Vector    []float64 `json:"vector" binding:"required"`
+		}
+		type ExpertiseRequest struct {
+			Embeddings []EmbeddingJson `json:"embeddings" binding:"required"`
 		}
 
-		var request TopicRequest
+		var request ExpertiseRequest
 		if err := c.ShouldBindJSON(&request); err != nil {
-			c.JSON(400, gin.H{"error": "Invalid request format, expecting {\"vectors\": [[...768 values], [...]]}"})
+			c.JSON(400, gin.H{"error": "Invalid request format" + err.Error()})
 			return
 		}
 
 		// Validate vectors
-		for _, vec := range request.Vectors {
-			if len(vec) != vectorDimension {
+		for _, emb := range request.Embeddings {
+			if len(emb.Vector) != vectorDimension {
 				c.JSON(400, gin.H{"error": fmt.Sprintf("Each vector must have exactly %d values", vectorDimension)})
 				return
 			}
 		}
 
-		// Convert [][]float64 to []Vector
-		vectors := make([]Vector, len(request.Vectors))
-		for i, vec := range request.Vectors {
-			var vector Vector
-			for j, val := range vec {
-				vector[j] = val
+		// Create embeddings and copy data from request
+		embeddings := make([]Embedding, len(request.Embeddings))
+		for i, emb := range request.Embeddings {
+			embeddings[i] = Embedding{
+				Key:       emb.Key,
+				Expertise: emb.Expertise,
+				Model:     emb.Model,
+				Vector:    emb.Vector,
 			}
-			vectors[i] = vector
 		}
 
-		topicData := Topic{
-			Vectors: vectors,
+		expertiseData := Expertise{
+			Embeddings: embeddings,
 		}
 
 		// Add to known topics
-		knownTopicsMutex.Lock()
-		knownTopics = append(knownTopics, topicData)
-		knownTopicsMutex.Unlock()
+		myExpertiseMutex.Lock()
+		myExpertise = append(myExpertise, expertiseData)
+		myExpertiseMutex.Unlock()
 
 		// Gossip the new topic immediately
 		if topic != nil {
 			// Serialize the topic data to JSON
-			topicPayload := struct {
-				Data Topic `json:"data"`
+			expertisePayload := struct {
+				Data Expertise `json:"data"`
 			}{
-				Data: topicData,
+				Data: expertiseData,
 			}
 
-			jsonData, err := json.Marshal(topicPayload)
+			jsonData, err := json.Marshal(expertisePayload)
 			if err != nil {
 				logger.Warn("❌ Error marshaling topic data:", err)
 				c.JSON(500, gin.H{"error": "Failed to serialize topic data", "details": err.Error()})
@@ -346,34 +388,35 @@ func startWebApi() {
 		}
 
 		c.JSON(200, gin.H{
-			"message":     "Topic received and gossiped",
-			"vectorCount": len(vectors),
+			"message":        "Expertise received and gossiped",
+			"embeddingCount": len(expertiseData.Embeddings),
 		})
 	})
 
 	// New endpoint for querying a remote peer
 	r.POST("/query", func(c *gin.Context) {
-		type QueryRequestAPI struct {
-			PeerId string    `json:"peerId" binding:"required"`
-			Vector []float64 `json:"vector" binding:"required"`
-		}
 
+		type EmbeddingQuery struct {
+			ExpertiseKey string    `json:"expertise_key"`
+			Model        string    `json:"model"`
+			Vector       []float64 `json:"vector"`
+			MatchCount   int       `json:"match_count"`
+		}
+		type QueryRequestAPI struct {
+			PeerId    string         `json:"nodeId" binding:"required"`
+			QueryId   string         `json:"queryId" binding:"required"`
+			Embedding EmbeddingQuery `json:"embedding" binding:"required"`
+		}
 		var request QueryRequestAPI
 		if err := c.ShouldBindJSON(&request); err != nil {
-			c.JSON(400, gin.H{"error": "Invalid request format, expecting {\"peerId\": \"...\", \"vector\": [...768 values]}"})
+			c.JSON(400, gin.H{"error": "Invalid request format : " + err.Error()})
 			return
 		}
 
 		// Validate vector length
-		if len(request.Vector) != vectorDimension {
+		if len(request.Embedding.Vector) != vectorDimension {
 			c.JSON(400, gin.H{"error": fmt.Sprintf("Vector must have exactly %d values", vectorDimension)})
 			return
-		}
-
-		// Convert []float64 to Vector
-		var queryVector Vector
-		for i, val := range request.Vector {
-			queryVector[i] = val
 		}
 
 		// Get the host from the global variable
@@ -381,23 +424,50 @@ func startWebApi() {
 			c.JSON(500, gin.H{"error": "P2P host not initialized yet"})
 			return
 		}
+		vector := Vector(request.Embedding.Vector)
 
-		logger.Info("🔍 Querying peer:", request.PeerId)
-
-		// Send the query to the remote peer via libp2p
-		result, err := queryRemotePeer(c.Request.Context(), globalHost, request.PeerId, queryVector)
-		if err != nil {
-			logger.Warn("❌ Error querying peer:", err)
-			c.JSON(500, gin.H{"error": "Failed to query peer", "details": err.Error()})
-			return
+		req := QueryRequest{
+			QueryId:      request.QueryId,
+			ExpertiseKey: request.Embedding.ExpertiseKey,
+			Model:        request.Embedding.Model,
+			MatchCount:   request.Embedding.MatchCount,
+			Vector:       vector,
 		}
 
-		// Return the query result
-		c.JSON(200, result)
+		if request.PeerId == globalHost.ID().String() {
+			logger.Info("🔍 Querying self")
+			var result interface{}
+			var err error
+
+			result, err = forwardQueryToLocalAPI(req)
+			if err != nil {
+				logger.Warn("❌ Error querying self:", err)
+				c.JSON(500, gin.H{"error": "Failed to query self", "details": err.Error()})
+				return
+			} else {
+				logger.Info("✅ Successfully queried self")
+				c.JSON(200, result)
+			}
+		} else {
+			logger.Info("🔍 Querying peer:", request.PeerId)
+
+			// Send the query to the remote peer via libp2p
+			result, err := queryRemotePeer(c.Request.Context(), globalHost, request.PeerId, req)
+			if err != nil {
+				logger.Warn("❌ Error querying peer:", err)
+				c.JSON(500, gin.H{"error": "Failed to query peer", "details": err.Error()})
+				return
+			}
+
+			// Return the query result
+			c.JSON(200, result)
+		}
 	})
 
 	r.Run(":8888")
 }
+
+var peerManager = NewPeerManager()
 
 func main() {
 	go startWebApi()
@@ -434,6 +504,8 @@ func main() {
 		panic(err)
 	}
 
+	clientApiUrl = strings.TrimRight(config.ClientApiUrl, "/")
+
 	opts := []libp2p.Option{
 		libp2p.NATPortMap(),
 		libp2p.EnableHolePunching(),
@@ -450,6 +522,7 @@ func main() {
 
 	// Store the host in the global variable
 	globalHost = host
+	peerManager := NewPeerManager()
 
 	// Set a function as stream handler. This function is called when a peer
 	// initiates a connection and starts a stream with this peer.
@@ -537,22 +610,28 @@ func main() {
 
 				if err != nil {
 					logger.Warn("Connection failed: ", err)
+					peerManager.RemovePeer(peer.ID)
+					logger.Warn("Connection failed, peer ", peer.ID, " was removed.")
 					continue
 				} else {
 					rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-
-					go writeData(rw)
-					go readData(rw)
+					peerManager.AddPeer(peer.ID, stream)
+					go writeData(rw, peer.ID)
+					go readData(rw, peer.ID)
 				}
 
 				logger.Info("*** 🥳 Connected to: ", peer)
+			} else {
+				peerManager.RemovePeer(peer.ID)
+				logger.Warn("Connection failed, peer ", peer.ID, " was removed.")
 			}
-		}
 
-		logger.Warn("No more peers 😢- Trying again")
-		// Wait again...
-		time.Sleep(5 * time.Second)
+			logger.Warn("No more peers 😢- Trying again")
+			// Wait again...
+			time.Sleep(5 * time.Second)
+		}
 	}
+
 }
 
 func handleStream(stream network.Stream) {
@@ -561,28 +640,28 @@ func handleStream(stream network.Stream) {
 	// Create a buffer stream for non-blocking read and write.
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 
-	go readData(rw)
-	go writeData(rw)
+	go readData(rw, "")
+	go writeData(rw, "")
 
 	// 'stream' will stay open until you close it (or the other side closes it).
 }
 
 // 🟢 Function to send our known topics to the gossip network
 func gossipTopics(pubsubTopic *pubsub.Topic) {
-	knownTopicsMutex.RLock()
-	defer knownTopicsMutex.RUnlock()
+	myExpertiseMutex.RLock()
+	defer myExpertiseMutex.RUnlock()
 
-	if len(knownTopics) == 0 {
+	if len(myExpertise) == 0 {
 		return
 	}
 
 	// We'll gossip each topic individually since they may be large
-	for _, topicData := range knownTopics {
+	for _, embeddingData := range myExpertise {
 		// Create payload
 		topicPayload := struct {
-			Data Topic `json:"data"`
+			Data Expertise `json:"data"`
 		}{
-			Data: topicData,
+			Data: embeddingData,
 		}
 
 		jsonData, err := json.Marshal(topicPayload)
@@ -597,7 +676,7 @@ func gossipTopics(pubsubTopic *pubsub.Topic) {
 			continue
 		}
 
-		logger.Info("📡 Gossiped topic, with ", len(topicData.Vectors), " vectors")
+		logger.Info("📡 Gossiped topic, with ", len(embeddingData.Embeddings), " vectors")
 	}
 }
 
@@ -609,32 +688,33 @@ func listenForGossip(sub *pubsub.Subscription) {
 			logger.Warn("❌ Error receiving gossip:", err)
 			continue
 		}
+		logger.Info("📩 Received gossip from: ", msg.ReceivedFrom)
 
 		// Get peer ID who sent this message
 		senderId := msg.ReceivedFrom.String()
 
 		// Parse the received JSON data
-		var topicPayload struct {
-			Key  string `json:"key"`
-			Data Topic  `json:"data"`
+		var expertisePayload struct {
+			Data Expertise `json:"data"`
 		}
 
-		if err := json.Unmarshal(msg.Data, &topicPayload); err != nil {
+		if err := json.Unmarshal(msg.Data, &expertisePayload); err != nil {
 			logger.Warn("❌ Failed to unmarshal received topic data:", err)
 			continue
 		}
 
-		topicData := topicPayload.Data
+		topicData := expertisePayload.Data
 
 		notifyExternalApiAboutGossipedTopic(topicData, senderId)
 	}
 }
 
-func readData(rw *bufio.ReadWriter) {
+func readData(rw *bufio.ReadWriter, peerId peer.ID) {
 	for {
 		str, err := rw.ReadString('\n')
 		if err != nil {
 			fmt.Println("Error reading from buffer")
+			peerManager.RemovePeer(peerId)
 			break
 		}
 
@@ -650,7 +730,7 @@ func readData(rw *bufio.ReadWriter) {
 	}
 }
 
-func writeData(rw *bufio.ReadWriter) {
+func writeData(rw *bufio.ReadWriter, perId peer.ID) {
 	stdReader := bufio.NewReader(os.Stdin)
 
 	for {
@@ -664,12 +744,12 @@ func writeData(rw *bufio.ReadWriter) {
 		_, err = rw.WriteString(fmt.Sprintf("%s\n", sendData))
 		if err != nil {
 			fmt.Println("Error writing to buffer")
-			panic(err)
+			peerManager.RemovePeer(perId)
 		}
 		err = rw.Flush()
 		if err != nil {
 			fmt.Println("Error flushing buffer")
-			panic(err)
+			peerManager.RemovePeer(perId)
 		}
 	}
 }

@@ -23,8 +23,6 @@ services:
       - sail
     depends_on:
       - mysql
-      - pgsql
-  #            - open-webui
   mysql:
     image: 'mysql/mysql-server:8.0'
     ports:
@@ -49,45 +47,6 @@ services:
         - '-p${DB_PASSWORD}'
       retries: 3
       timeout: 5s
-  #    pgsql:
-  #        image: 'postgres:17'
-  #        ports:
-  #            - '${FORWARD_DB_PORT:-5432}:5432'
-  #        environment:
-  #            PGPASSWORD: '${DB_PASSWORD:-secret}'
-  #            POSTGRES_DB: '${DB_DATABASE}'
-  #            POSTGRES_USER: '${DB_USERNAME}'
-  #            POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
-  #        volumes:
-  #            - 'sail-pgsql:/var/lib/postgresql/data'
-  #            - './vendor/laravel/sail/database/pgsql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql'
-  #        networks:
-  #            - sail
-  #        healthcheck:
-  #            test:
-  #                - CMD
-  #                - pg_isready
-  #                - '-q'
-  #                - '-d'
-  #                - '${DB_DATABASE}'
-  #                - '-U'
-  #                - '${DB_USERNAME}'
-  #            retries: 3
-  #            timeout: 5s
-  pgsql:
-    image: supabase/postgres:17.0.1.047-orioledb
-    ports:
-      - "5432:5432"
-    environment:
-      PGPASSWORD: '${DB_PASSWORD:-secret}'
-      POSTGRES_DB: '${DB_DATABASE}'
-      POSTGRES_USER: '${DB_USERNAME}'
-      POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
-    volumes:
-      - 'sail-pgsql:/var/lib/postgresql/data'
-      - './vendor/laravel/sail/database/pgsql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql'
-    networks:
-      - sail
   pgadmin:
     image: dpage/pgadmin4
     container_name: sail-pgadmin
@@ -97,12 +56,10 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: password
-    depends_on:
-      - pgsql
     networks:
       - sail
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.6.1
     ports:
       - 7869:11434
     volumes:
@@ -117,30 +74,9 @@ services:
       - OLLAMA_HOST=0.0.0.0
     networks:
       - sail
-#    open-webui:
-#        image: ghcr.io/open-webui/open-webui:latest
-#        container_name: open-webui
-#        volumes:
-#            - open-webui:/app/backend/data
-#        depends_on:
-#            - ollama
-#        ports:
-#            - "3001:8080"
-#        environment:
-#            - 'OLLAMA_BASE_URL=http://ollama:11434'
-#            - 'OLLAMA_API_BASE_URL=http://ollama:11434'
-#            - 'WEBUI_SECRET_KEY='
-#        extra_hosts:
-#            - host.docker.internal:host-gateway
-#        networks:
-#            - sail
-#        restart: unless-stopped
 networks:
   sail:
     driver: bridge
 volumes:
   sail-mysql:
     driver: local
-  sail-pgsql:
-    driver: local
-#    open-webui: {}
