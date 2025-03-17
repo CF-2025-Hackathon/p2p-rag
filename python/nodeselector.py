@@ -1,107 +1,148 @@
 from typing import Dict, List, Tuple
-import json
 import logging
 from pathlib import Path
 import ollama
 from ollama import AsyncClient
 import numpy as np
 from numpy.linalg import norm
+from supabase import create_client, Client
+from dotenv import load_dotenv
+import os
 
 # Logging configuration
 logger = logging.getLogger(__name__)
 
+
+load_dotenv()
+
+# Supabase Konfiguration
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
+supabase: Client = create_client(supabase_url, supabase_key)
+
+
 class NodeSelector:
-    def __init__(self, gossip_file: str = "gossip_data.json"):
+    def __init__(self, supabase_url: str, supabase_key: str):
         """
-        Initialize the NodeSelector
+        Initialize the NodeSelector with Supabase credentials
         Args:
-            gossip_file: Path to the gossip JSON file
+            supabase_url: The URL of your Supabase project
+            supabase_key: The anon/service key of your Supabase project
         """
-        self.gossip_file = gossip_file
         self.client = AsyncClient(host='http://localhost:11434')
+        self.supabase: Client = create_client(supabase_url, supabase_key)
+        self.supabase_url = supabase_url
+        self.supabase_key = supabase_key
         
-    def load_gossip_data(self) -> Dict:
+    async def load_gossip_data(self) -> Dict:
         """
-        Load the gossip data from JSON file
+        Load the node embeddings data from Supabase
         Returns:
-            Dict: The gossip data
+            Dict: The node embeddings data with structure:
+            {
+                node_id: {
+                    "vector": vector,
+                    "embedding_model": str,
+                    "embedding_key": str,
+                    "expertise": str,
+                    "last_updated": datetime
+                }
+            }
         """
         try:
-            if Path(self.gossip_file).exists():
-                with open(self.gossip_file, 'r') as f:
-                    return json.load(f)
-            return {}
+            response = self.supabase.table('node_embeddings').select(
+                'node_id',
+                'embedding_key',
+                'expertise',
+                'embedding_model',
+                'vector',
+                'last_updated'
+            ).execute()
+            
+            # Convert the response to the expected format
+            gossip_data = {}
+            for record in response.data:
+                gossip_data[record['node_id']] = {
+                    "vector": record['vector'],
+                    "embedding_model": record['embedding_model'],
+                    "embedding_key": record['embedding_key'],
+                    "expertise": record['expertise'],
+                    "last_updated": record['last_updated']
+                }
+            return gossip_data
         except Exception as e:
-            logger.error(f"Error loading gossip data: {str(e)}")
+            logger.error(f"Error loading node embeddings data from Supabase: {str(e)}")
             return {}
 
-    async def find_best_match(self, query: str, model_name: str = "nomic-embed-text", top_k: int = 1) -> List[Tuple[str, float, str]]:
+    async def find_best_match(self, query: str, model_name: str = "nomic-embed-text", top_k: int = 1) -> List[Dict]:
         """
-        Find the best matching nodes for a query using Ollama's embeddings
+        Find the best matching nodes for a query using Ollama's embeddings and Supabase vector similarity
         Args:
             query: The query text
             model_name: Name of the embedding model to use
-            top_k: Number of best matches to return, or None for all matches
+            top_k: Number of best matches to return
         Returns:
-            List[Tuple[str, float, str]]: List of (node_id, similarity_score, embedding_model) tuples
+            List[Dict]: List of dictionaries containing:
+                - node_id: str
+                - similarity_score: float
+                - embedding_model: str
+                - embedding_key: str
+                - expertise: str
+                - last_updated: datetime
         """
         try:
-            # Get query embedding from Ollama
             query_response = await self.client.embeddings(
                 model=model_name,
                 prompt=query
             )
+            
+            query_embedding = query_response['embedding']
+            logger.info(f"Embedding dimension: {len(query_embedding)}")  # Sollte 768 sein
             
             # Convert response to dict if it's not already
             if not isinstance(query_response, dict):
                 query_response = query_response.__dict__
                 
             # Extract the embedding
-            if 'embedding' in query_response:
-                query_embedding = np.array(query_response['embedding'])
-                # L2 Normalisierung des Query-Vektors
-                query_embedding = query_embedding / norm(query_embedding)
-            else:
+            if 'embedding' not in query_response:
                 logger.error(f"Unexpected response format: {query_response}")
                 return []
+                
+            # Use Supabase's vector similarity search
+            result = self.supabase.rpc(
+                'match_nodes_embeddings',  # Korrekte Funktion in Supabase
+                {
+                    'query_embedding': query_embedding,
+                    'match_count': 1  # Filter für die Node-Embeddings
+                }
+            ).execute()
 
-            # Load gossip data
-            gossip_data = self.load_gossip_data()
-            if not gossip_data:
-                logger.warning("No gossip data available")
+            # Logging des Supabase-Ergebnisses
+            logger.info(f"Supabase result: {result.data}")
+            
+            if not result.data:
+                logger.warning("No matching nodes found. Raw result: %s", result)
                 return []
 
-            # Calculate similarities with all nodes
+            # Format the results
             similarities = []
-            for node_id, node_data in gossip_data.items():
-                # Konvertiere den Node-Vektor zu numpy und normalisiere
-                node_vector = np.array(node_data["vector"])
-                node_vector = node_vector / norm(node_vector)
-                
-                # Berechne verschiedene Ähnlichkeitsmetriken
-                cosine_sim = np.dot(query_embedding, node_vector)
-                l2_distance = norm(query_embedding - node_vector)
-                
-                # Kombinierte Ähnlichkeitsmetrik
-                similarity = (cosine_sim + 1) / 2  # Normalisiere auf [0,1]
-                
-                similarities.append((
-                    node_id,
-                    float(similarity),  # Konvertiere numpy float zu Python float
-                    node_data["embedding_model"]
-                ))
+            for match in result.data:
+                similarities.append({
+                    "node_id": match['node_id'],
+                    "similarity_score": float(match['similarity']),
+                    "embedding_model": match['embedding_model'],
+                    "embedding_key": match['embedding_key'],
+                    "expertise": match['expertise'],
+                    # "last_updated": match.get('last_updated')
+                })
 
-            # Sort by similarity score in descending order
-            similarities.sort(key=lambda x: x[1], reverse=True)
-            
-            # Return top-k matches or all matches if top_k is None
-            return similarities[:top_k] if top_k is not None else similarities
+            return similarities, query_embedding
 
         except Exception as e:
             logger.error(f"Error finding best match: {str(e)}")
             return []
 
-    async def find_nodes_above_threshold(self, query: str, model_name: str = "nomic-embed-text", threshold: float = 0.6) -> List[Tuple[str, float, str]]:
+    async def find_nodes_above_threshold(self, query: str, model_name: str = "nomic-embed-text", threshold: float = 0.6) -> List[Dict]:
         """
         Find all nodes with similarity above a threshold using Ollama's embeddings
         Args:
@@ -109,14 +150,14 @@ class NodeSelector:
             model_name: Name of the embedding model to use
             threshold: Minimum similarity score (between 0 and 1)
         Returns:
-            List[Tuple[str, float, str]]: List of (node_id, similarity_score, embedding_model) tuples
+            List[Dict]: List of matches above threshold
         """
         try:
             # Get all matches
             all_matches = await self.find_best_match(query, model_name, top_k=None)
             
             # Filter by threshold
-            return [match for match in all_matches if match[1] >= threshold]
+            return [match for match in all_matches if match["similarity_score"] >= threshold]
 
         except Exception as e:
             logger.error(f"Error finding nodes above threshold: {str(e)}")
