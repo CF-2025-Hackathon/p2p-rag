@@ -6,12 +6,12 @@ import os
 from datetime import datetime
 import logging
 import uuid
-from .embedding import get_embedding_from_ollama
-from .nodeselector import NodeSelector
+from embedding import get_embedding_from_ollama
+from nodeselector import NodeSelector
 from supabase import create_client, Client
 from os import environ
 from dotenv import load_dotenv
-from .pydantic_ai_expert import PydanticAIDeps, retrieve_relevant_documentation, pydantic_ai_expert
+from pydantic_ai_expert import PydanticAIDeps, retrieve_relevant_documentation, pydantic_ai_expert
 from openai import AsyncOpenAI
 
 # Logging configuration

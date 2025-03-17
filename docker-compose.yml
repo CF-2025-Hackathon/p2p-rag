@@ -9,9 +9,12 @@ services:
       RENDEZVOUS: CF2025R4GLLM1
       PRIV_KEY: CAESQEWItMSZtFGmFNgWYtTNiFUn7ZgKmm8n0uPN+A1Gqn4Ka1MwLHs0lgbsNVw+/B47kUOTgFKTfrlzAFuitQaq+jo=
       RAG_TOPICS: "AI,Blockchain"
+      CLIENT_API_URL: "http://python-client:9999"
     restart: unless-stopped
     volumes:
       - ./go:/go/src/app
+    networks:
+      - p2p-network
 
   go2:
     build:
@@ -23,9 +26,12 @@ services:
       RENDEZVOUS: CF2025R4GLLM1
       PRIV_KEY: CAESQHDamXB+3SKB1JWc1ZV1sNNrGfWW3TVtH0fJhBF9YFEDbvwVVs8LeDTWuZz2DC3YlhpPRb2v10hTSeOYJP6Bhb4=
       RAG_TOPICS: "Bio-engineering,Microplastics"
+      CLIENT_API_URL: "http://python-client:9999"
     restart: unless-stopped
     volumes:
       - ./go:/go/src/app
+    networks:
+      - p2p-network
 
   go3:
     build:
@@ -37,6 +43,49 @@ services:
       RENDEZVOUS: CF2025R4GLLM1
       PRIV_KEY: CAESQEtB5tgGcrIOll1GG8OBxEn2TfkBQ/JeZO/OsT7anmWPKnvlRG//S4i67Fs6b39SroutEneaJj9IZRDd2Gydb0U=
       RAG_TOPICS: "CloudFest,Hackathon"
+      CLIENT_API_URL: "http://python-client:9999"
     restart: unless-stopped
     volumes:
       - ./go:/go/src/app
+    networks:
+      - p2p-network
+
+  python-client:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    ports:
+      - "9999:9999"
+    environment:
+      - SUPABASE_URL=http://host.docker.internal:54321
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_MODEL=${LLM_MODEL}
+      - LLM_BASE_URL=http://ollama:11434/v1
+      - LLM_TEXT_EMBEDDING_MODEL=${LLM_TEXT_EMBEDDING_MODEL}
+      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN}
+      - DATABASE_SOURCE=${DATABASE_SOURCE}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - ollama
+    networks:
+      - p2p-network
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    networks:
+      - p2p-network
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+
+networks:
+  p2p-network:
+    driver: bridge
+
+volumes:
+  ollama:

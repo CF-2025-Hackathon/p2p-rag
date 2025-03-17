@@ -9,3 +9,8 @@ logfire==3.8.1
 supabase==2.13.0
 openai==1.66.3
 pydantic_ai==0.0.40
+python-dotenv==1.0.1
+asyncio==3.4.3
+uuid==1.30
+pathlib==1.0.1
+chromadb==0.4.22
