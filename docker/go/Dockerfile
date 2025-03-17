@@ -12,4 +12,3 @@ EXPOSE 8080
 EXPOSE 8000
 
 ENTRYPOINT exec air -c .air.toml -- -listen /ip4/0.0.0.0/tcp/0 -rendezvous "$RENDEZVOUS" -key "$PRIV_KEY" -client-api-url "$CLIENT_API_URL"
-CMD ["uvicorn", "python.nodelistener:app", "--host", "0.0.0.0", "--port", "8000"]
