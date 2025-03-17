@@ -1,0 +1,202 @@
+services:
+    laravel1.test:
+        build:
+            context: ./vendor/laravel/sail/runtimes/8.3
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: '${WWWGROUP}'
+        image: sail-8.3/app
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '80:80'
+            - '8080:8080'
+            - '5173:${VITE_PORT:-5173}'
+        environment:
+            WWWUSER: '${WWWUSER}'
+            LARAVEL_SAIL: 1
+            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+            IGNITION_LOCAL_SITES_PATH: '${PWD}'
+            APP_SERVICE: 'laravel1.test'
+        volumes:
+            - '.:/var/www/html'
+            - './.env.laravel1:/var/www/html/.env'
+        networks:
+            - sail
+            - p2prag
+        depends_on:
+            - pgsql
+            - redis1
+    laravel2.test:
+        build:
+            context: ./vendor/laravel/sail/runtimes/8.3
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: '${WWWGROUP}'
+        image: sail-8.3/app
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '81:80'
+            - '8081:8081'
+            - '5174:${VITE_PORT:-5173}'
+        environment:
+            WWWUSER: '${WWWUSER}'
+            LARAVEL_SAIL: 1
+            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+            IGNITION_LOCAL_SITES_PATH: '${PWD}'
+            APP_SERVICE: 'laravel2.test'
+        volumes:
+            - '.:/var/www/html'
+            - './.env.laravel2:/var/www/html/.env'
+        networks:
+            - sail
+            - p2prag
+        depends_on:
+            - pgsql
+            - redis2
+
+    laravel3.test:
+        build:
+            context: ./vendor/laravel/sail/runtimes/8.3
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: '${WWWGROUP}'
+        image: sail-8.3/app
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '82:80'
+            - '8082:8082'
+            - '5175:${VITE_PORT:-5173}'
+        environment:
+            WWWUSER: '${WWWUSER}'
+            LARAVEL_SAIL: 1
+            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+            IGNITION_LOCAL_SITES_PATH: '${PWD}'
+            APP_SERVICE: 'laravel3.test'
+        volumes:
+            - '.:/var/www/html'
+            - './.env.laravel3:/var/www/html/.env'
+        networks:
+            - sail
+            - p2prag
+        depends_on:
+            - pgsql
+            - redis3
+
+    pgsql:
+        image: 'postgres:15'
+        ports:
+            - '${FORWARD_DB_PORT:-5432}:5432'
+        environment:
+            PGPASSWORD: '${DB_PASSWORD:-secret}'
+            POSTGRES_DB: '${DB_DATABASE}'
+            POSTGRES_USER: '${DB_USERNAME}'
+            POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
+        volumes:
+            - 'sail-pgsql:/var/lib/postgresql/data'
+            - './vendor/laravel/sail/database/pgsql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql'
+        networks:
+            - sail
+        healthcheck:
+            test:
+                - CMD
+                - pg_isready
+                - '-q'
+                - '-d'
+                - '${DB_DATABASE}'
+                - '-U'
+                - '${DB_USERNAME}'
+            retries: 3
+            timeout: 5s
+    redis1:
+        image: 'redis/redis-stack:latest'
+        ports:
+            - '6379:6379'
+            - '8002:8001'
+        volumes:
+            - 'sail-redis1:/data'
+        networks:
+            - sail
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+            retries: 3
+            timeout: 5s
+    redis2:
+        image: 'redis/redis-stack:latest'
+        ports:
+            - '6380:6379'
+            - '8003:8001'
+        volumes:
+            - 'sail-redis2:/data'
+        networks:
+            - sail
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+            retries: 3
+            timeout: 5s
+    redis3:
+        image: 'redis/redis-stack:latest'
+        ports:
+            - '6381:6379'
+            - '8004:8001'
+        volumes:
+            - 'sail-redis3:/data'
+        networks:
+            - sail
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+            retries: 3
+            timeout: 5s
+    adminer:
+        image: adminer
+        ports:
+            - ${ADMINER_PORT:-8001}:8080
+        networks:
+            - sail
+    ollama:
+        container_name: ollama
+        pull_policy: always
+        tty: true
+        restart: unless-stopped
+        image: ollama/ollama:0.6.1
+        ports:
+            - 7869:11434
+        environment:
+            - OLLAMA_KEEP_ALIVE=24h
+        networks:
+            - sail
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          count: 1
+                          capabilities: [gpu]
+networks:
+    sail:
+        driver: bridge
+    p2prag:
+        external: true
+volumes:
+    sail-pgsql:
+        driver: local
+    sail-redis1:
+        driver: local
+    sail-redis2:
+        driver: local
+    sail-redis3:
+        driver: local

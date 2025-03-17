@@ -102,7 +102,7 @@ services:
     networks:
       - sail
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.6.1
     ports:
       - 7869:11434
     volumes:
