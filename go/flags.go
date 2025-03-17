@@ -56,7 +56,7 @@ func ParseFlags() (Config, error) {
 	flag.Var(&config.ListenAddresses, "listen", "Adds a multiaddress to the listen list")
 	flag.StringVar(&config.ProtocolID, "pid", "/p2p-rag/0.0.0", "Sets a protocol id for stream headers")
 	flag.StringVar(&config.PrivateKey, "key", "", "Private key in base64 format")
-	flag.StringVar(&config.ClientApiUrl, "client-api-url", "", "Client API URL")
+	flag.StringVar(&config.ClientApiUrl, "client-api-url", "http://localhost:9999", "Client API URL")
 	flag.Parse()
 
 	if len(config.BootstrapPeers) == 0 {
