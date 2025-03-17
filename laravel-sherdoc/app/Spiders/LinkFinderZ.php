@@ -94,9 +94,14 @@ class LinkFinderZ extends BasicSpider
         return [
             new Request(
                 'GET',
-                'https://www.mediclowns.org/',
+                $this->context['url'],
                 [$this, 'parse'],
             ),
+            // new Request(
+            //     'GET',
+            //     'https://www.mediclowns.org/',
+            //     [$this, 'parse'],
+            // ),
             // new Request(
             //     'GET',
             //     'https://gopa.be/',
@@ -215,7 +220,7 @@ class LinkFinderZ extends BasicSpider
             return false;
         }
 
-        if (!str_starts_with($item['link'], '/') && !str_starts_with($item['link'], 'https://www.mediclowns.org/') && !str_starts_with($item['link'], 'https://gopa.be/') && !str_starts_with($item['link'], 'https://www.beeradvocate.com/beer/') && !str_starts_with($item['link'], 'https://emtbvba.be/') && !str_starts_with($item['link'], 'https://bloemenhofke.be/') && !str_starts_with($item['link'], 'https://syn.io/') && !str_starts_with($item['link'], 'https://www.jovado.be/') && !str_starts_with($item['link'], 'https://www.craftbeer.com/styles') && !str_starts_with($item['link'], 'https://www.craftbeer.com/beer-styles') && !str_starts_with($item['link'], 'https://hackathon.cloudfest.com/')) {
+        if (!str_starts_with($item['link'], '/') && !str_starts_with($item['link'], $this->context['url'])) {
             return false;
         }
 

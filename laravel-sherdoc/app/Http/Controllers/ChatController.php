@@ -71,36 +71,8 @@ class ChatController extends Controller
         ]);
     }
 
-    public function test(Request $request): JsonResponse
+    public function announce(Request $request): JsonResponse
     {
-        // $config = new OpenAIConfig();
-        // $config->model = 'gpt-4o';
-        // $config->apiKey = '';
-        // $chat = new OpenAIChat($config);
-
-        // $embeddingGenerator = new OpenAI3SmallEmbeddingGenerator($config);
-        // $vectorStore = new RedisVectorStore(Redis::connection()->client(), 'p2prag_data');
-
-        // $qa = new QuestionAnswering(
-        //     $vectorStore,
-        //     $embeddingGenerator,
-        //     $chat,
-        // );
-
-        // $answer = $qa->answerQuestion('wat is dzjing?');
-
-        // $config = new OllamaConfig();
-        // $config->model = 'nomic-embed-text';
-        // $config->url = 'http://ollama:11434/api/';
-
-        // $embeddingGenerator = new OllamaEmbeddingGenerator($config);
-
-        // $embeddingGenerator->embedText('test');
-
-        // dd($_ENV);
-        // dump(env('REDIS_HOST'));
-        // dd(config('database.redis.default.host'));
-
         $this->updateCentroidVector('p2prag_data');
 
         return new JsonResponse([

@@ -9,7 +9,7 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-Route::get('/test', [ChatController::class, 'test']);
+Route::get('/announce', [ChatController::class, 'announce']);
 Route::post('/chat', [ChatController::class, 'chat']);
 Route::post('/train', [ChatController::class, 'train']);
 Route::post('/expertise', [ChatController::class, 'handleExpertise']);

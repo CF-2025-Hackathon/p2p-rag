@@ -57,6 +57,37 @@ services:
         depends_on:
             - pgsql
             - redis2
+
+    laravel3.test:
+        build:
+            context: ./vendor/laravel/sail/runtimes/8.3
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: '${WWWGROUP}'
+        image: sail-8.3/app
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '82:80'
+            - '8082:8082'
+            - '5175:${VITE_PORT:-5173}'
+        environment:
+            WWWUSER: '${WWWUSER}'
+            LARAVEL_SAIL: 1
+            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+            IGNITION_LOCAL_SITES_PATH: '${PWD}'
+            APP_SERVICE: 'laravel3.test'
+        volumes:
+            - '.:/var/www/html'
+            - './.env.laravel3:/var/www/html/.env'
+        networks:
+            - sail
+            - p2prag
+        depends_on:
+            - pgsql
+            - redis3
+
     pgsql:
         image: 'postgres:15'
         ports:
@@ -114,6 +145,22 @@ services:
                 - ping
             retries: 3
             timeout: 5s
+    redis3:
+        image: 'redis/redis-stack:latest'
+        ports:
+            - '6381:6379'
+            - '8004:8001'
+        volumes:
+            - 'sail-redis3:/data'
+        networks:
+            - sail
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+            retries: 3
+            timeout: 5s
     adminer:
         image: adminer
         ports:
@@ -150,4 +197,6 @@ volumes:
     sail-redis1:
         driver: local
     sail-redis2:
+        driver: local
+    sail-redis3:
         driver: local

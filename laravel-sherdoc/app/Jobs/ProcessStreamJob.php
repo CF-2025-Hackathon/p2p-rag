@@ -81,7 +81,7 @@ class ProcessStreamJob implements ShouldQueue
                     'expertise_key' => '',
                     'model' => 'nomic-embed-text',
                     'vector' => $vector,
-                    'match_count' => 10,
+                    'match_count' => 20,
                 ],
             ]);
 

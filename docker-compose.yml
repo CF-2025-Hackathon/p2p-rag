@@ -6,7 +6,7 @@ services:
     ports:
       - "9000:8888"
     environment:
-      RENDEZVOUS: CF2025R4GLLMX2
+      RENDEZVOUS: CF2025R4GLLMA4
       PRIV_KEY: CAESQH23qa+EBDu7eNacvchwsUzmL979ogiSMnt/aC4TgQRkP79nDReh95wb8Dr439DIzMJvCG1eo3+e2BLR+pmS1f8=
       CLIENT_API_URL: http://laravel1.test/api/
     restart: unless-stopped
@@ -22,7 +22,7 @@ services:
     ports:
       - "9001:8888"
     environment:
-      RENDEZVOUS: CF2025R4GLLMX2
+      RENDEZVOUS: CF2025R4GLLMA4
       PRIV_KEY: CAESQDdnuUZFS1weJu0sZXgyfoZ6jWYC34Db5pztm2OIySFJtZ2qJlMM6+mXj9O2I9O61B098IiN3LM/yeFsnAYkuGY=
       CLIENT_API_URL: http://laravel2.test/api/
     restart: unless-stopped
@@ -31,21 +31,21 @@ services:
     networks:
       - p2prag
 
-  # go3:
-  #   build:
-  #     context: docker/go
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "9002:8888"
-  #   environment:
-  #     RENDEZVOUS: CF2025R4GLLM2
-  #     PRIV_KEY: CAESQF276AfPefwVwxWVQYl851wkPYkg5lGzqNuXqF0YAHBMejLDV80FA6hg0Hgo/S08/WV2nFsZcDge3v6GN9xzsZw=
-  #     CLIENT_API_URL: http://laravel3.test/api/
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ./go:/go/src/app
-  #   networks:
-  #     - p2prag
+  go3:
+    build:
+      context: docker/go
+      dockerfile: Dockerfile
+    ports:
+      - "9002:8888"
+    environment:
+      RENDEZVOUS: CF2025R4GLLMA4
+      PRIV_KEY: CAESQF276AfPefwVwxWVQYl851wkPYkg5lGzqNuXqF0YAHBMejLDV80FA6hg0Hgo/S08/WV2nFsZcDge3v6GN9xzsZw=
+      CLIENT_API_URL: http://laravel3.test/api/
+    restart: unless-stopped
+    volumes:
+      - ./go:/go/src/app
+    networks:
+      - p2prag
 
 networks:
   p2prag:

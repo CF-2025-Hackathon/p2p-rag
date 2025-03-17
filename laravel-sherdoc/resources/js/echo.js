@@ -6,6 +6,8 @@ window.Pusher = Pusher;
 var reverbPort = import.meta.env.VITE_REVERB_PORT;
 if (window.location.port == 81) {
     reverbPort = 8081;
+} else if (window.location.port == 82) {
+    reverbPort = 8082;
 }
 
 window.Echo = new Echo({
