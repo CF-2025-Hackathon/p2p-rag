@@ -10,9 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 
 	"github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
@@ -299,6 +299,8 @@ func queryRemotePeer(ctx context.Context, host host.Host, peerIdStr string, requ
 }
 
 func startWebApi() {
+	gin.SetMode(gin.ReleaseMode)
+
 	r := gin.Default()
 
 	r.GET("/expertise", func(c *gin.Context) {
@@ -470,7 +472,6 @@ func startWebApi() {
 var peerManager = NewPeerManager()
 
 func main() {
-	go startWebApi()
 	log.SetAllLoggers(log.LevelError)
 	log.SetLogLevel(systemName, "info")
 	help := flag.Bool("h", false, "Display Help")
@@ -496,6 +497,8 @@ func main() {
 		newPrivateKey()
 		return
 	}
+
+	go startWebApi()
 
 	// libp2p.New constructs a new libp2p Host. Other options can be added
 	// here.
