@@ -23,6 +23,13 @@ From the `go` directory (i.e. the directory containing this file) run the follow
 > go build
 ```
 
+## Running BDD tests
+
+From the `go` directory run:
+```
+go test -test.v -test.run ^TestFeatures$ ./tests
+```
+
 ## Usage
 
 Use two different terminal windows to run
