@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/libp2p/go-libp2p/core/crypto/pb"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -10,6 +11,7 @@ func Test_getPrivateKey_canDecodeAKeyInStringFormat(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.NotNil(t, key)
+	assert.Equal(t, key.Type(), pb.KeyType_Ed25519)
 }
 
 func Test_getPrivateKey_canGenerateANewKeyInStringFormat(t *testing.T) {
