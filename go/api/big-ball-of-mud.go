@@ -21,7 +21,6 @@ import (
 
 	"github.com/ipfs/go-log/v2"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -35,7 +34,6 @@ const vectorDimension = 768
 const queryProtocolID = "/p2p-rag/query/0.0.1"
 
 // Vector is a type representing a 768-dimensional vector of float64 values
-
 type Vector [vectorDimension]float64
 
 type Embedding struct {
@@ -596,35 +594,4 @@ func writeData(rw *bufio.ReadWriter, perId peer.ID) {
 			peerManager.RemovePeer(perId)
 		}
 	}
-}
-
-func getPrivateKey(base64PrivateKey string) (p2pcrypto.PrivKey, error) {
-	if base64PrivateKey == "" {
-		return newPrivateKey()
-	}
-	return privateKeyFrom(base64PrivateKey)
-}
-
-func privateKeyFrom(base64PrivateKey string) (p2pcrypto.PrivKey, error) {
-	privateKeyAsBytes, err := p2pcrypto.ConfigDecodeKey(base64PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	return p2pcrypto.UnmarshalPrivateKey(privateKeyAsBytes)
-}
-
-func newPrivateKey() (p2pcrypto.PrivKey, error) {
-	privateKey, _, err := p2pcrypto.GenerateKeyPair(p2pcrypto.Ed25519, 0)
-	if err != nil {
-		return nil, err
-	}
-	return privateKey, err
-}
-
-func privateKeyAsString(privateKey p2pcrypto.PrivKey) (string, error) {
-	privateKeyAsBytes, err := p2pcrypto.MarshalPrivateKey(privateKey)
-	if err != nil {
-		return "", err
-	}
-	return p2pcrypto.ConfigEncodeKey(privateKeyAsBytes), nil
 }
