@@ -1,4 +1,4 @@
-package tests
+package api
 
 import (
 	"bytes"
@@ -13,7 +13,6 @@ import (
 	"reflect"
 
 	"github.com/cucumber/godog"
-	"p2p-rag/api"
 )
 
 type godogsResponseCtxKey struct{}
@@ -28,7 +27,7 @@ type response struct {
 }
 
 func (a *apiFeature) resetResponse(*godog.Scenario) {
-	a.router = api.SetupRouter()
+	a.router = SetupRouter()
 }
 
 func (a *apiFeature) iSendRequestTo(ctx context.Context, method, route string) (context.Context, error) {

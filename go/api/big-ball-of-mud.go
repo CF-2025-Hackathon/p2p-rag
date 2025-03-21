@@ -331,10 +331,15 @@ func Execute() {
 	}
 
 	if *printKey {
-		_, err := newPrivateKey()
+		privateKey, err := newPrivateKey()
 		if err != nil {
 			panic(err)
 		}
+		pkString, err := privateKeyAsString(privateKey)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(pkString)
 		return
 	}
 
@@ -464,9 +469,6 @@ func Execute() {
 				}
 
 				l.Info("*** 🥳 Connected to: ", peer)
-			} else {
-				peerManager.RemovePeer(peer.ID)
-				l.Warn("Connection failed, peer ", peer.ID, " was removed.")
 			}
 
 			l.Warn("No more peers 😢- Trying again")
@@ -613,12 +615,16 @@ func privateKeyFrom(base64PrivateKey string) (p2pcrypto.PrivKey, error) {
 
 func newPrivateKey() (p2pcrypto.PrivKey, error) {
 	privateKey, _, err := p2pcrypto.GenerateKeyPair(p2pcrypto.Ed25519, 0)
-	if err == nil {
-		privateKeyAsBytes, err1 := p2pcrypto.MarshalPrivateKey(privateKey)
-		if err1 != nil {
-			panic(err1)
-		}
-		fmt.Println(p2pcrypto.ConfigEncodeKey(privateKeyAsBytes))
+	if err != nil {
+		return nil, err
 	}
 	return privateKey, err
+}
+
+func privateKeyAsString(privateKey p2pcrypto.PrivKey) (string, error) {
+	privateKeyAsBytes, err := p2pcrypto.MarshalPrivateKey(privateKey)
+	if err != nil {
+		return "", err
+	}
+	return p2pcrypto.ConfigEncodeKey(privateKeyAsBytes), nil
 }
