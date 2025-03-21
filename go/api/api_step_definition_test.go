@@ -88,9 +88,18 @@ func (a *apiFeature) theResponsePayloadShouldMatchJson(ctx context.Context, body
 
 	// the matching may be adapted per different requirements.
 	if !reflect.DeepEqual(expected, actual) {
-		return fmt.Errorf("expected JSON does not match actual, %v vs. %v", expected, actual)
+		return fmt.Errorf("expected JSON does not match actual, %s vs. %s", body.Content, resp.body)
 	}
 	return nil
+}
+
+func systemIsAnExpertIn(ctx context.Context, body *godog.DocString) (err error) {
+	var expertise Expertise
+	err = json.Unmarshal([]byte(body.Content), &expertise)
+	if err == nil {
+		myExpertise = append(myExpertise, expertise)
+	}
+	return
 }
 
 func InitializeScenario(ctx *godog.ScenarioContext) {
@@ -105,4 +114,5 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I send "([^"]*)" request to "([^"]*)"`, apiFeature.iSendRequestTo)
 	ctx.Step(`^the response code should be (\d+)$`, apiFeature.theResponseCodeShouldBe)
 	ctx.Step(`^the response payload should match json:$`, apiFeature.theResponsePayloadShouldMatchJson)
+	ctx.Step(`^System is an expert in:$`, systemIsAnExpertIn)
 }
