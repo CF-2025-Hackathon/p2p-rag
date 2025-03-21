@@ -15,8 +15,8 @@ func SetupRouter() *gin.Engine {
 		myExpertiseMutex.RLock()
 		// Return a map of topic keys to their vector data
 		topics := make([]Expertise, len(myExpertise))
-		for _, topicData := range myExpertise {
-			topics = append(topics, topicData)
+		for i, topicData := range myExpertise {
+			topics[i] = topicData
 		}
 		myExpertiseMutex.RUnlock()
 

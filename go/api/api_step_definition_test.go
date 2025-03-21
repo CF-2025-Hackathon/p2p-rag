@@ -97,7 +97,7 @@ func systemIsAnExpertIn(ctx context.Context, body *godog.DocString) (err error) 
 	var expertise Expertise
 	err = json.Unmarshal([]byte(body.Content), &expertise)
 	if err == nil {
-		myExpertise = append(myExpertise, expertise)
+		myExpertise = []Expertise{expertise}
 	}
 	return
 }

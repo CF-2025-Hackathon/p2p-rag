@@ -35,9 +35,6 @@ Feature: API interface
     {
       "topics": [
         {
-          "embeddings": null
-        },
-        {
           "embeddings": [
             {
               "key": "machine_learning",
