@@ -61,7 +61,7 @@ Defining the payload:
 #### Querying the network
 To query the network, the following flow should be implemented:
 
-![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/raw/docu/documentation/querying.svg)
+![First Communication Flow](https://github.com/CF-2025-Hackathon/p2p-rag/raw/main/documentation/querying.svg)
 
 
 ### Decisions
